@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { BoardDetailPage } from './pages/BoardDetailPage';
 import { BoardsPage } from './pages/BoardsPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -24,6 +25,7 @@ export default function App() {
         {/* Authenticated-only routes. */}
         <Route element={<ProtectedRoute />}>
           <Route path="/boards" element={<BoardsPage />} />
+          <Route path="/boards/:id" element={<BoardDetailPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

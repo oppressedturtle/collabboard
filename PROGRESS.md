@@ -137,3 +137,20 @@ CRUD + role-based authz, board list/create UI, lists/columns model.
 **Roadmap:** Phase 2 — 2/4 (board API + authz done; board UI + lists/columns next).
 
 **Next:** Board list/create UI on the client, then the lists/columns model + CRUD.
+
+## 2026-06-09 — Phase 2: Board UI (list / create / detail)
+
+**Done:**
+- Board data layer (`lib/boards.ts`): typed `listBoards`/`createBoard`/`getBoard`.
+- BoardsPage: loads the user's boards, inline create form (optimistic prepend),
+  loading/empty/error states, board cards linking to detail.
+- BoardDetailPage (`/boards/:id`, protected): fetches a board, friendly 404/no-access
+  handling, placeholder for Phase 3 lists/cards.
+- Tests: BoardsPage list + create flow (mocked fetch). Client 5/5 tests,
+  typecheck ✓, eslint ✓, vite build ✓.
+
+**Roadmap:** Phase 2 — board list/create/detail UI in place. Remaining for the
+checkbox: board settings + invite-members UI; then lists/columns (Phase 2 item 4).
+
+**Next:** Board settings + member-invite UI, then the Lists/columns model + CRUD
+(Phase 2 item 4) leading into Phase 3 cards & drag-drop.
