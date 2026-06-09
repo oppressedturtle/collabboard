@@ -14,10 +14,10 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Dockerfiles (client, server) + root `docker-compose.yml` running the full stack
 
 ## Phase 1 — Auth & Users
-- [ ] User model, register/login (bcrypt), JWT access + refresh tokens, httpOnly cookies
-- [ ] Auth middleware, protected routes, `/me` endpoint
+- [x] User model, register/login (bcrypt), JWT access + refresh tokens, httpOnly cookies
+- [x] Auth middleware, protected routes, `/me` endpoint
 - [ ] Client auth: register/login forms, auth context, route guards, token refresh
-- [ ] Input validation (zod) on all auth endpoints, rate limiting on auth routes
+- [x] Input validation (zod) on all auth endpoints, rate limiting on auth routes
 
 ## Phase 2 — Boards & Membership
 - [ ] Board model (owner, members, roles: owner/editor/viewer), CRUD endpoints

@@ -78,3 +78,25 @@ client Dockerfile + client service to compose to complete Phase 0.
 
 **Next:** Phase 1 — Auth & Users: User model, register/login (bcrypt), JWT access +
 refresh tokens in httpOnly cookies, auth middleware, `/me`.
+
+## 2026-06-09 — Phase 1: Auth & Users (server-side)
+
+**Done:**
+- User model (Mongoose): unique email, `select:false` passwordHash, `toJSON`
+  strips hash + maps `_id`→`id`.
+- Password: bcryptjs hash/verify (configurable cost). Tokens: JWT access (15m) +
+  refresh (7d) with separate secrets; sign/verify helpers.
+- Auth routes: `POST /auth/register`, `/login`, `/refresh` (rotates both tokens),
+  `/logout`, `GET /auth/me` (protected). Tokens delivered as httpOnly cookies
+  (secure+sameSite configurable); also accepts `Authorization: Bearer`.
+- Security: zod validation on register/login, express-rate-limit (30/15min) on
+  credential routes, generic "invalid credentials" (no user enumeration),
+  production guard that refuses to boot with default JWT secrets.
+- `requireAuth` middleware + `req.user` typing; cookie-parser wired.
+- Tests: 20/20 (tokens, password, schemas, no-DB route paths incl. 400/401/logout).
+  typecheck ✓, eslint ✓, build ✓.
+
+**Roadmap:** Phase 1 — 3/4 (server auth done; client auth UI remains).
+
+**Next:** Client auth — register/login forms, auth context/provider, protected
+route guards, silent token refresh on 401, wired to `/api/auth/*`.

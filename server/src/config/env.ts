@@ -32,6 +32,26 @@ const envSchema = z.object({
     .string()
     .url()
     .default('mongodb://localhost:27017/collabboard'),
+
+  // --- Auth / tokens ---
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32)
+    .default('dev-access-secret-change-me-please-0123456789'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32)
+    .default('dev-refresh-secret-change-me-please-0123456789'),
+  ACCESS_TOKEN_TTL: z.string().default('15m'),
+  REFRESH_TOKEN_TTL: z.string().default('7d'),
+  BCRYPT_ROUNDS: z.coerce.number().int().min(8).max(15).default(12),
+
+  // --- Cookies ---
+  COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -52,3 +72,19 @@ export const env: Env = parsed.data;
 
 export const isProduction = env.NODE_ENV === 'production';
 export const isTest = env.NODE_ENV === 'test';
+
+// Refuse to boot in production with the built-in development secrets — these
+// are public in the repo and would make tokens trivially forgeable.
+if (isProduction) {
+  const usingDefault =
+    env.JWT_ACCESS_SECRET.includes('change-me') ||
+    env.JWT_REFRESH_SECRET.includes('change-me');
+  if (usingDefault) {
+    // eslint-disable-next-line no-console
+    console.error(
+      'Refusing to start in production with default JWT secrets. ' +
+        'Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET to strong random values.',
+    );
+    process.exit(1);
+  }
+}
