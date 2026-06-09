@@ -2,13 +2,13 @@
 
 **Stack:** MongoDB · Express · React · Node.js · Socket.io (MERN + realtime)
 **Goal:** Production-grade realtime collaborative Kanban board. Portfolio-quality: tested, containerized, CI'd, deploy-ready.
-**Repo visibility:** private until reviewed.
+**Repo visibility:** public — https://github.com/oppressedturtle/collabboard
 
 Each roadmap item is a self-contained increment the coder agent completes in one daily session, then commits. Check items off in order; skip ahead only if blocked.
 
 ## Phase 0 — Foundation
 - [x] Monorepo layout (`/client`, `/server`), root README, LICENSE (MIT), `.gitignore`, `.editorconfig`
-- [ ] Server: Express + TypeScript skeleton, env config (dotenv), health endpoint, structured logging (pino)
+- [x] Server: Express + TypeScript skeleton, env config (dotenv), health endpoint, structured logging (pino)
 - [ ] Client: React + TypeScript (Vite), Tailwind, base layout/router, ESLint + Prettier
 - [ ] MongoDB connection (Mongoose), Docker Compose for local Mongo
 - [ ] Dockerfiles (client, server) + root `docker-compose.yml` running the full stack
@@ -64,4 +64,4 @@ Full audit + fixes: dependency CVEs (`npm audit`), authz checks on every endpoin
 Spin up the full stack via Docker Compose, run all tests, manually verify every Phase 1–5 feature works end to end. Log results in `PROGRESS.md`. Only proceed to ship when green.
 
 ## SHIP PHASE (after QA green)
-Create **private** GitHub repo under `oppressedturtle`, push all branches/tags, verify CI passes, then notify Yanis for review.
+Push final commits/tags to the **public** repo under `oppressedturtle`, verify CI passes, then notify Yanis for review.
