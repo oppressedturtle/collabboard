@@ -16,7 +16,7 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 ## Phase 1 — Auth & Users
 - [x] User model, register/login (bcrypt), JWT access + refresh tokens, httpOnly cookies
 - [x] Auth middleware, protected routes, `/me` endpoint
-- [ ] Client auth: register/login forms, auth context, route guards, token refresh
+- [x] Client auth: register/login forms, auth context, route guards, token refresh
 - [x] Input validation (zod) on all auth endpoints, rate limiting on auth routes
 
 ## Phase 2 — Boards & Membership

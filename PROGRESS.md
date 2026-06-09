@@ -100,3 +100,21 @@ refresh tokens in httpOnly cookies, auth middleware, `/me`.
 
 **Next:** Client auth — register/login forms, auth context/provider, protected
 route guards, silent token refresh on 401, wired to `/api/auth/*`.
+
+## 2026-06-09 — Phase 1 COMPLETE: client auth
+
+**Done:**
+- API client (`lib/api.ts`): credentialed fetch wrapper, typed `ApiError`, and
+  silent single-retry via `POST /auth/refresh` on a 401.
+- Auth context + `AuthProvider`: bootstraps session from `/auth/me`, exposes
+  `login`/`register`/`logout`, loading state; `useAuth` hook.
+- `ProtectedRoute` guard (redirects to /login, preserves intended location).
+- Real Login + Register forms (validation, error display, redirect-after-auth).
+- Auth-aware nav (user name + Sign out when logged in).
+- Tests: AuthProvider login flow + App routing/guard (mocked fetch). Client
+  typecheck ✓, eslint ✓, vitest 4/4 ✓, vite build ✓.
+
+**Roadmap:** Phase 1 — 4/4 ✓ (full auth, server + client).
+
+**Next:** Phase 2 — Boards & Membership: Board model (owner/members/roles),
+CRUD + role-based authz, board list/create UI, lists/columns model.

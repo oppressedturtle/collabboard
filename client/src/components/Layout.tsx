@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+
+import { useAuth } from '../auth/context';
 
 interface LayoutProps {
   children: ReactNode;
@@ -15,6 +17,14 @@ const navItems = [
  * simple; auth-aware nav (user menu, logout) arrives with Phase 1.
  */
 export function Layout({ children }: LayoutProps) {
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function onLogout() {
+    await logout();
+    navigate('/');
+  }
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-slate-200 bg-white">
@@ -42,12 +52,28 @@ export function Layout({ children }: LayoutProps) {
                 {item.label}
               </NavLink>
             ))}
-            <Link
-              to="/login"
-              className="ml-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-            >
-              Sign in
-            </Link>
+
+            {loading ? null : user ? (
+              <div className="ml-2 flex items-center gap-2">
+                <span className="hidden text-sm text-slate-600 sm:inline">
+                  {user.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-300 transition-colors hover:bg-slate-100"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="ml-2 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+              >
+                Sign in
+              </Link>
+            )}
           </nav>
         </div>
       </header>

@@ -1,10 +1,12 @@
 import { Route, Routes } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { BoardsPage } from './pages/BoardsPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { RegisterPage } from './pages/RegisterPage';
 
 /**
  * Application routes. The Router itself is provided by `main.tsx`
@@ -17,7 +19,13 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/boards" element={<BoardsPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        {/* Authenticated-only routes. */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/boards" element={<BoardsPage />} />
+        </Route>
+
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
