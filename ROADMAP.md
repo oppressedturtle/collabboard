@@ -9,9 +9,9 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 ## Phase 0 — Foundation
 - [x] Monorepo layout (`/client`, `/server`), root README, LICENSE (MIT), `.gitignore`, `.editorconfig`
 - [x] Server: Express + TypeScript skeleton, env config (dotenv), health endpoint, structured logging (pino)
-- [ ] Client: React + TypeScript (Vite), Tailwind, base layout/router, ESLint + Prettier
+- [x] Client: React + TypeScript (Vite), Tailwind, base layout/router, ESLint + Prettier
 - [x] MongoDB connection (Mongoose), Docker Compose for local Mongo
-- [ ] Dockerfiles (client, server) + root `docker-compose.yml` running the full stack
+- [x] Dockerfiles (client, server) + root `docker-compose.yml` running the full stack
 
 ## Phase 1 — Auth & Users
 - [ ] User model, register/login (bcrypt), JWT access + refresh tokens, httpOnly cookies

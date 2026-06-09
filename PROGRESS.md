@@ -61,3 +61,20 @@ endpoint, pino structured logging.
 
 **Next:** Client — React + TypeScript (Vite) + Tailwind, base layout/router, then add
 client Dockerfile + client service to compose to complete Phase 0.
+
+## 2026-06-09 — Phase 0 COMPLETE: React client + full Docker stack
+
+**Done:**
+- Scaffolded the client: React 18 + TypeScript + Vite 5 + Tailwind 3, ESLint.
+- App shell: `Layout` (nav + footer), routing (react-router v6) with Home (hero +
+  feature cards), Login + Boards placeholders, and a 404 page.
+- Dev proxy: `/api` (prefix-stripped) + `/socket.io` → server, mirroring nginx.
+- Client Docker image: multi-stage build → nginx serving the SPA with reverse-proxy
+  for `/api` + websocket upgrade for `/socket.io`, SPA fallback, gzip, healthcheck.
+- Completed `docker-compose.yml`: mongo + server + client (open localhost:5173).
+- Verified: typecheck ✓, eslint ✓, vitest 2/2 ✓, vite build ✓, `docker compose config` ✓.
+
+**Roadmap:** Phase 0 — 5/5 ✓ (foundation, server, client, DB, Docker all done).
+
+**Next:** Phase 1 — Auth & Users: User model, register/login (bcrypt), JWT access +
+refresh tokens in httpOnly cookies, auth middleware, `/me`.

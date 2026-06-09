@@ -1,7 +1,6 @@
-# Local full-stack development stack for CollabBoard.
+# Local full-stack stack for CollabBoard (mongo + server + client).
 # Usage: docker compose up --build
-#
-# The client service is added in a later increment once the React app exists.
+# Then open http://localhost:5173 (client proxies /api + /socket.io to server).
 
 services:
   mongo:
@@ -33,6 +32,15 @@ services:
       LOG_LEVEL: info
     ports:
       - '4000:4000'
+
+  client:
+    build:
+      context: ./client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - '5173:80'
 
 volumes:
   mongo-data:
