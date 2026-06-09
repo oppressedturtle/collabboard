@@ -118,3 +118,22 @@ route guards, silent token refresh on 401, wired to `/api/auth/*`.
 
 **Next:** Phase 2 — Boards & Membership: Board model (owner/members/roles),
 CRUD + role-based authz, board list/create UI, lists/columns model.
+
+## 2026-06-09 — Phase 2: Boards & membership (server-side)
+
+**Done:**
+- Board model: name/description, owner ref, embedded members [{user, role}]
+  with role enum (owner/editor/viewer); indexes on owner + members.user.
+- Role system (`lib/roles.ts`): viewer<editor<owner rank + `hasMinRole`, unit-tested.
+- `requireBoardRole(min)` middleware: loads board, authorizes by membership role,
+  returns 404 to non-members (no existence leak), 403 for insufficient role.
+- Board routes (all auth-gated): list (my boards), create (creator=owner),
+  get (viewer+), update (editor+), delete (owner), and member management —
+  invite by email / change role / remove (owner only; owner protected).
+- zod schemas for create/update/member ops.
+- Tests: role hierarchy + no-DB route paths (401/400/validation). 27/27 server
+  tests; typecheck ✓, eslint ✓, build ✓.
+
+**Roadmap:** Phase 2 — 2/4 (board API + authz done; board UI + lists/columns next).
+
+**Next:** Board list/create UI on the client, then the lists/columns model + CRUD.

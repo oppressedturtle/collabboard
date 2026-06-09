@@ -8,6 +8,7 @@ import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './routes/auth.js';
+import { boardsRouter } from './routes/boards.js';
 import { healthRouter } from './routes/health.js';
 
 /**
@@ -45,6 +46,7 @@ export function createApp(): Express {
   // Routes.
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);
+  app.use('/boards', boardsRouter);
 
   // Fallbacks.
   app.use(notFoundHandler);

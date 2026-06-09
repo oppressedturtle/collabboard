@@ -20,8 +20,8 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Input validation (zod) on all auth endpoints, rate limiting on auth routes
 
 ## Phase 2 — Boards & Membership
-- [ ] Board model (owner, members, roles: owner/editor/viewer), CRUD endpoints
-- [ ] Role-based authorization middleware
+- [x] Board model (owner, members, roles: owner/editor/viewer), CRUD endpoints
+- [x] Role-based authorization middleware
 - [ ] Board list + create UI, board settings, invite members by email
 - [ ] Lists/columns model + CRUD, ordering
 

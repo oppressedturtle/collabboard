@@ -9,6 +9,10 @@ declare global {
         id: string;
         email: string;
       };
+      /** Populated by `requireBoardRole` after loading + authorizing a board. */
+      board?: import('../models/Board.js').BoardDocument;
+      /** The authenticated user's role on `board`. */
+      boardRole?: import('../lib/roles.js').BoardRole;
     }
   }
 }
