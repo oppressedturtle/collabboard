@@ -21,11 +21,15 @@ import {
   type CreateBoardInput,
   type UpdateBoardInput,
 } from '../schemas/board.js';
+import { listsRouter } from './lists.js';
 
 export const boardsRouter = Router();
 
 // Every board route requires authentication.
 boardsRouter.use(requireAuth);
+
+// Board-scoped columns (each route authorizes via requireBoardRole).
+boardsRouter.use('/:id/lists', listsRouter);
 
 /** List boards the current user is a member of. */
 boardsRouter.get(

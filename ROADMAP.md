@@ -23,7 +23,7 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Board model (owner, members, roles: owner/editor/viewer), CRUD endpoints
 - [x] Role-based authorization middleware
 - [ ] Board list + create UI, board settings, invite members by email
-- [ ] Lists/columns model + CRUD, ordering
+- [x] Lists/columns model + CRUD, ordering
 
 ## Phase 3 — Cards & Drag-Drop
 - [ ] Card model (title, description, labels, assignees, due date, position), CRUD

@@ -154,3 +154,20 @@ checkbox: board settings + invite-members UI; then lists/columns (Phase 2 item 4
 
 **Next:** Board settings + member-invite UI, then the Lists/columns model + CRUD
 (Phase 2 item 4) leading into Phase 3 cards & drag-drop.
+
+## 2026-06-09 — Phase 2: Lists/columns model + CRUD (server)
+
+**Done:**
+- List model: board ref, title, numeric `position`; compound index {board,position}
+  for ordered retrieval.
+- Board-scoped lists router (mergeParams) mounted at `/boards/:id/lists`:
+  GET (viewer+), POST appends at end (editor+), PATCH rename/reposition (editor+),
+  DELETE (editor+). Each list op re-authorizes via requireBoardRole and is scoped
+  to the board so lists can't be touched cross-board.
+- zod create/update schemas. No-DB tests (auth + board-id validation). 29/29 server
+  tests; typecheck ✓, eslint ✓, build ✓.
+
+**Roadmap:** Phase 2 — lists/columns done. Remaining: board settings/invite UI +
+client rendering of lists.
+
+**Next:** Client — render + create lists (columns) on the board detail page.
