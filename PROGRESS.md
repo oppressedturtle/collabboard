@@ -187,3 +187,23 @@ Remaining nicety: board settings / member-invite UI (can fold into Phase 5 polis
 
 **Next:** Phase 3 — Cards: model (title/desc/labels/assignees/due/position) + CRUD,
 then drag-and-drop across lists with optimistic updates.
+
+## 2026-06-09 — Phase 3: Card model + CRUD (server)
+
+**Done:**
+- Card model: board+list refs, title, description, labels[], assignees[ref User],
+  dueDate, position; index {list,position}.
+- Cards router at `/boards/:id/cards` (mergeParams, role-gated): list-all (viewer+),
+  create-in-list (editor+, validates list∈board), read, update (title/desc/labels/
+  assignees/dueDate), move (to list+position, validates target list∈board), delete.
+- Cascade deletes: deleting a list removes its cards; deleting a board removes its
+  lists + cards.
+- zod schemas (createCard/updateCard/moveCard) with objectId validation.
+- Tests: schema unit tests + no-DB route gates. 38/38 server tests; typecheck ✓,
+  eslint ✓, build ✓.
+
+**Roadmap:** Phase 3 — card API done. Next: drag-and-drop UI, card detail modal,
+activity log.
+
+**Next:** Client — render cards in lists + dnd-kit drag-and-drop across columns with
+optimistic move (PATCH /cards/:id/move).

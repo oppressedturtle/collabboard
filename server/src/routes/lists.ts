@@ -9,6 +9,7 @@ import { isValidObjectId } from 'mongoose';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
+import { CardModel } from '../models/Card.js';
 import { ListModel } from '../models/List.js';
 import {
   createListSchema,
@@ -105,6 +106,8 @@ listsRouter.delete(
       if (result.deletedCount === 0) {
         throw new HttpError(404, 'List not found');
       }
+      // Cascade: remove the column's cards.
+      await CardModel.deleteMany({ list: listId, board: req.board?.id });
       res.status(204).end();
     } catch (err) {
       next(err);

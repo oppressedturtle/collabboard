@@ -11,6 +11,8 @@ import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
 import { BoardModel } from '../models/Board.js';
+import { CardModel } from '../models/Card.js';
+import { ListModel } from '../models/List.js';
 import { UserModel } from '../models/User.js';
 import {
   addMemberSchema,
@@ -21,6 +23,7 @@ import {
   type CreateBoardInput,
   type UpdateBoardInput,
 } from '../schemas/board.js';
+import { cardsRouter } from './cards.js';
 import { listsRouter } from './lists.js';
 
 export const boardsRouter = Router();
@@ -28,8 +31,9 @@ export const boardsRouter = Router();
 // Every board route requires authentication.
 boardsRouter.use(requireAuth);
 
-// Board-scoped columns (each route authorizes via requireBoardRole).
+// Board-scoped columns + cards (each route authorizes via requireBoardRole).
 boardsRouter.use('/:id/lists', listsRouter);
+boardsRouter.use('/:id/cards', cardsRouter);
 
 /** List boards the current user is a member of. */
 boardsRouter.get(
@@ -102,6 +106,10 @@ boardsRouter.delete(
   requireBoardRole('owner'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const boardId = req.board?.id;
+      // Cascade: remove the board's cards and lists, then the board itself.
+      await CardModel.deleteMany({ board: boardId });
+      await ListModel.deleteMany({ board: boardId });
       await req.board?.deleteOne();
       res.status(204).end();
     } catch (err) {
