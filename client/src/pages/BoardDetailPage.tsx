@@ -10,6 +10,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { BoardColumn } from '../components/board/BoardColumn';
+import { CardModal } from '../components/board/CardModal';
 import { useAuth } from '../auth/context';
 import { ApiError } from '../lib/api';
 import { applyDragEnd, cardsForList } from '../lib/boardDnd';
@@ -34,6 +35,7 @@ export function BoardDetailPage() {
 
   const [newListTitle, setNewListTitle] = useState('');
   const [addingList, setAddingList] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -189,6 +191,7 @@ export function BoardDetailPage() {
               canEdit={canEdit}
               onAddCard={onAddCard}
               onDeleteList={onDeleteList}
+              onOpenCard={setSelectedCard}
             />
           ))}
 
@@ -220,6 +223,23 @@ export function BoardDetailPage() {
           )}
         </div>
       </DndContext>
+
+      {selectedCard && id && (
+        <CardModal
+          boardId={id}
+          card={selectedCard}
+          canEdit={canEdit}
+          onClose={() => setSelectedCard(null)}
+          onSaved={(updated) =>
+            setCards((prev) =>
+              prev.map((c) => (c.id === updated.id ? updated : c)),
+            )
+          }
+          onDeleted={(cardId) =>
+            setCards((prev) => prev.filter((c) => c.id !== cardId))
+          }
+        />
+      )}
     </div>
   );
 }

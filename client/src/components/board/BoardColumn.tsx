@@ -16,6 +16,7 @@ interface BoardColumnProps {
   canEdit: boolean;
   onAddCard: (listId: string, title: string) => Promise<void>;
   onDeleteList: (listId: string) => void;
+  onOpenCard: (card: Card) => void;
 }
 
 export function BoardColumn({
@@ -24,6 +25,7 @@ export function BoardColumn({
   canEdit,
   onAddCard,
   onDeleteList,
+  onOpenCard,
 }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `${LIST_DROPPABLE_PREFIX}${list.id}`,
@@ -77,7 +79,12 @@ export function BoardColumn({
           strategy={verticalListSortingStrategy}
         >
           {cards.map((card) => (
-            <CardItem key={card.id} card={card} disabled={!canEdit} />
+            <CardItem
+              key={card.id}
+              card={card}
+              disabled={!canEdit}
+              onOpen={onOpenCard}
+            />
           ))}
         </SortableContext>
         {cards.length === 0 && (

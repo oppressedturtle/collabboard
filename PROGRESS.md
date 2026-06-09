@@ -227,3 +227,21 @@ optimistic move (PATCH /cards/:id/move).
 
 **Next:** Card detail modal (open a card → edit description/labels/assignees/due,
 delete), then activity log.
+
+## 2026-06-09 — Phase 3: Card detail modal (client)
+
+**Done:**
+- `updateCard` API helper; `CardModal` component: edit title/description/labels
+  (comma-separated)/due-date, Save + Delete, Esc + overlay-click to close,
+  read-only for viewers.
+- Cards are clickable (open modal) while remaining draggable (PointerSensor
+  distance threshold separates click vs drag).
+- BoardDetailPage tracks the selected card; modal saves/deletes update board state.
+- Test: clicking a card opens the modal. Client 11/11 tests; typecheck ✓, eslint ✓,
+  vite build ✓.
+
+**Roadmap:** Phase 3 — model, drag-drop, and card detail all done. Remaining:
+per-card activity log (item 4).
+
+**Next:** Per-card activity log (created/moved/edited events), then Phase 4 realtime
+(Socket.io) to sync boards live across clients.

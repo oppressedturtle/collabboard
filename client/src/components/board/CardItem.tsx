@@ -6,10 +6,11 @@ import type { Card } from '../../lib/cards';
 interface CardItemProps {
   card: Card;
   disabled?: boolean;
+  onOpen?: (card: Card) => void;
 }
 
-/** A draggable card within a column. */
-export function CardItem({ card, disabled }: CardItemProps) {
+/** A draggable card within a column. Clicking (without dragging) opens it. */
+export function CardItem({ card, disabled, onOpen }: CardItemProps) {
   const {
     attributes,
     listeners,
@@ -31,9 +32,10 @@ export function CardItem({ card, disabled }: CardItemProps) {
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => onOpen?.(card)}
       className={[
         'rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 shadow-sm',
-        disabled ? '' : 'cursor-grab active:cursor-grabbing',
+        disabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
       ].join(' ')}
     >
       <p className="font-medium">{card.title}</p>

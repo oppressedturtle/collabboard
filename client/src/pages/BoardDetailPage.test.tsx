@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,5 +95,26 @@ describe('BoardDetailPage', () => {
     // Owner ⇒ can edit ⇒ add-list + add-card forms present.
     expect(screen.getByPlaceholderText(/add a list/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/add a card/i)).toBeInTheDocument();
+  });
+
+  it('opens the card detail modal when a card is clicked', async () => {
+    render(
+      <MemoryRouter initialEntries={['/boards/1']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/boards/:id" element={<BoardDetailPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByText('First card'));
+
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByPlaceholderText(/more detailed description/i),
+    ).toBeInTheDocument();
   });
 });

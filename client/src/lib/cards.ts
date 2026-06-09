@@ -33,6 +33,26 @@ export async function createCard(
   return card;
 }
 
+export interface CardUpdate {
+  title?: string;
+  description?: string;
+  labels?: string[];
+  assignees?: string[];
+  dueDate?: string | null;
+}
+
+export async function updateCard(
+  boardId: string,
+  cardId: string,
+  patch: CardUpdate,
+): Promise<Card> {
+  const { card } = await api.patch<{ card: Card }>(
+    `/boards/${boardId}/cards/${cardId}`,
+    patch,
+  );
+  return card;
+}
+
 export async function moveCard(
   boardId: string,
   cardId: string,
