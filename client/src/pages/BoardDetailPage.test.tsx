@@ -39,6 +39,25 @@ describe('BoardDetailPage', () => {
             ],
           });
         }
+        if (url.endsWith('/boards/1/cards')) {
+          return jsonResponse({
+            cards: [
+              {
+                id: 'c1',
+                board: '1',
+                list: 'l1',
+                title: 'First card',
+                description: '',
+                labels: [],
+                assignees: [],
+                dueDate: null,
+                position: 0,
+                createdAt: '',
+                updatedAt: '',
+              },
+            ],
+          });
+        }
         if (url.endsWith('/boards/1')) {
           return jsonResponse({
             board: {
@@ -72,7 +91,9 @@ describe('BoardDetailPage', () => {
       await screen.findByRole('heading', { name: 'My Board' }),
     ).toBeInTheDocument();
     expect(screen.getByText('To Do')).toBeInTheDocument();
-    // Owner ⇒ can edit ⇒ add-list form present.
+    expect(screen.getByText('First card')).toBeInTheDocument();
+    // Owner ⇒ can edit ⇒ add-list + add-card forms present.
     expect(screen.getByPlaceholderText(/add a list/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/add a card/i)).toBeInTheDocument();
   });
 });

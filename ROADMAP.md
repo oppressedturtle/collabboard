@@ -27,7 +27,7 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 
 ## Phase 3 — Cards & Drag-Drop
 - [x] Card model (title, description, labels, assignees, due date, position), CRUD
-- [ ] Drag-and-drop UI (dnd-kit) for cards across lists, optimistic updates
+- [x] Drag-and-drop UI (dnd-kit) for cards across lists, optimistic updates
 - [ ] Card detail modal: description (markdown), labels, assignees, due dates
 - [ ] Activity log per card
 

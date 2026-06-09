@@ -207,3 +207,23 @@ activity log.
 
 **Next:** Client — render cards in lists + dnd-kit drag-and-drop across columns with
 optimistic move (PATCH /cards/:id/move).
+
+## 2026-06-09 — Phase 3: Drag-and-drop cards UI (client)
+
+**Done:**
+- Cards data layer (`lib/cards.ts`): list/create/move/delete.
+- Pure drag reducer (`lib/boardDnd.ts`): `applyDragEnd` computes reorder/cross-list
+  moves with list-local position renumbering — fully unit-tested (4 cases).
+- DnD UI with @dnd-kit: `CardItem` (sortable, drag disabled for viewers),
+  `BoardColumn` (droppable + SortableContext + add-card form + delete), and
+  BoardDetailPage wiring DndContext → optimistic `setCards` → `PATCH /cards/:id/move`
+  with rollback on failure.
+- Add card per column; cards render with labels/due-date chips.
+- Tests: boardDnd unit + BoardDetailPage renders board/lists/cards/forms. Client
+  10/10 tests; typecheck ✓, eslint ✓, vite build ✓.
+
+**Roadmap:** Phase 3 — card API + drag-drop done. Remaining: card detail modal
+(markdown desc, labels, assignees, due) + per-card activity log.
+
+**Next:** Card detail modal (open a card → edit description/labels/assignees/due,
+delete), then activity log.

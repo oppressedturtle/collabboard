@@ -1,9 +1,25 @@
+import {
+  DndContext,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { BoardColumn } from '../components/board/BoardColumn';
 import { useAuth } from '../auth/context';
 import { ApiError } from '../lib/api';
+import { applyDragEnd, cardsForList } from '../lib/boardDnd';
 import { type Board, getBoard } from '../lib/boards';
+import {
+  type Card,
+  createCard as apiCreateCard,
+  listCards,
+  moveCard as apiMoveCard,
+} from '../lib/cards';
 import { type List, createList, deleteList, listLists } from '../lib/lists';
 
 export function BoardDetailPage() {
@@ -12,11 +28,16 @@ export function BoardDetailPage() {
 
   const [board, setBoard] = useState<Board | null>(null);
   const [lists, setLists] = useState<List[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [newTitle, setNewTitle] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [newListTitle, setNewListTitle] = useState('');
+  const [addingList, setAddingList] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -24,13 +45,15 @@ export function BoardDetailPage() {
     setLoading(true);
     (async () => {
       try {
-        const [boardData, listData] = await Promise.all([
+        const [boardData, listData, cardData] = await Promise.all([
           getBoard(id),
           listLists(id),
+          listCards(id),
         ]);
         if (active) {
           setBoard(boardData);
           setLists(listData);
+          setCards(cardData);
         }
       } catch (err) {
         if (active) {
@@ -52,31 +75,62 @@ export function BoardDetailPage() {
   const myRole = board?.members.find((m) => m.user === user?.id)?.role;
   const canEdit = myRole === 'owner' || myRole === 'editor';
 
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || !id) return;
+    const result = applyDragEnd(cards, String(active.id), String(over.id));
+    if (!result) return;
+
+    const previous = cards;
+    setCards(result.cards); // optimistic
+    apiMoveCard(
+      id,
+      result.moved.cardId,
+      result.moved.listId,
+      result.moved.position,
+    ).catch(() => {
+      setCards(previous); // rollback
+      setError('Could not move the card.');
+    });
+  }
+
+  async function onAddCard(listId: string, title: string) {
+    if (!id) return;
+    try {
+      const card = await apiCreateCard(id, listId, title);
+      setCards((prev) => [...prev, card]);
+    } catch {
+      setError('Could not add the card.');
+    }
+  }
+
   async function onAddList(event: FormEvent) {
     event.preventDefault();
-    const title = newTitle.trim();
+    const title = newListTitle.trim();
     if (!title || !id) return;
-    setAdding(true);
+    setAddingList(true);
     try {
       const list = await createList(id, title);
       setLists((prev) => [...prev, list]);
-      setNewTitle('');
+      setNewListTitle('');
     } catch {
-      // Surface minimally; a fuller toast system arrives in Phase 5.
       setError('Could not add the list.');
     } finally {
-      setAdding(false);
+      setAddingList(false);
     }
   }
 
   async function onDeleteList(listId: string) {
     if (!id) return;
-    const previous = lists;
-    setLists((prev) => prev.filter((l) => l.id !== listId)); // optimistic
+    const prevLists = lists;
+    const prevCards = cards;
+    setLists((prev) => prev.filter((l) => l.id !== listId));
+    setCards((prev) => prev.filter((c) => c.list !== listId));
     try {
       await deleteList(id, listId);
     } catch {
-      setLists(previous); // rollback
+      setLists(prevLists);
+      setCards(prevCards);
       setError('Could not delete the list.');
     }
   }
@@ -121,60 +175,51 @@ export function BoardDetailPage() {
         </p>
       )}
 
-      <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
-        {lists.map((list) => (
-          <section
-            key={list.id}
-            className="flex w-72 shrink-0 flex-col rounded-xl bg-slate-100 p-3"
-          >
-            <header className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">
-                {list.title}
-              </h2>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteList(list.id)}
-                  aria-label={`Delete list ${list.title}`}
-                  className="rounded px-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-                >
-                  ✕
-                </button>
-              )}
-            </header>
-            <div className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-400">
-              No cards yet
-            </div>
-          </section>
-        ))}
-
-        {canEdit && (
-          <form
-            onSubmit={onAddList}
-            className="flex w-72 shrink-0 flex-col gap-2 rounded-xl bg-slate-50 p-3"
-          >
-            <input
-              type="text"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Add a list…"
-              maxLength={120}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragEnd={onDragEnd}
+      >
+        <div className="mt-6 flex items-start gap-4 overflow-x-auto pb-4">
+          {lists.map((list) => (
+            <BoardColumn
+              key={list.id}
+              list={list}
+              cards={cardsForList(cards, list.id)}
+              canEdit={canEdit}
+              onAddCard={onAddCard}
+              onDeleteList={onDeleteList}
             />
-            <button
-              type="submit"
-              disabled={adding || newTitle.trim().length === 0}
-              className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
-            >
-              {adding ? 'Adding…' : 'Add list'}
-            </button>
-          </form>
-        )}
+          ))}
 
-        {lists.length === 0 && !canEdit && (
-          <p className="text-sm text-slate-500">This board has no lists yet.</p>
-        )}
-      </div>
+          {canEdit && (
+            <form
+              onSubmit={onAddList}
+              className="flex w-72 shrink-0 flex-col gap-2 rounded-xl bg-slate-50 p-3"
+            >
+              <input
+                type="text"
+                value={newListTitle}
+                onChange={(e) => setNewListTitle(e.target.value)}
+                placeholder="Add a list…"
+                maxLength={120}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+              <button
+                type="submit"
+                disabled={addingList || newListTitle.trim().length === 0}
+                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+              >
+                {addingList ? 'Adding…' : 'Add list'}
+              </button>
+            </form>
+          )}
+
+          {lists.length === 0 && !canEdit && (
+            <p className="text-sm text-slate-500">This board has no lists yet.</p>
+          )}
+        </div>
+      </DndContext>
     </div>
   );
 }
