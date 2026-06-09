@@ -16,6 +16,20 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /health/ready', () => {
+  const app = createApp();
+
+  it('returns 503 when the database is not connected', async () => {
+    // No DB connection is established in unit tests, so readiness should
+    // report not-ready rather than falsely claiming the service is up.
+    const res = await request(app).get('/health/ready');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({ status: 'not-ready' });
+    expect(typeof res.body.db).toBe('string');
+  });
+});
+
 describe('unknown routes', () => {
   const app = createApp();
 

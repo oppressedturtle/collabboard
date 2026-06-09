@@ -1,0 +1,38 @@
+# Local full-stack development stack for CollabBoard.
+# Usage: docker compose up --build
+#
+# The client service is added in a later increment once the React app exists.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      MONGODB_URI: mongodb://mongo:27017/collabboard
+      CORS_ORIGIN: http://localhost:5173
+      LOG_LEVEL: info
+    ports:
+      - '4000:4000'
+
+volumes:
+  mongo-data:

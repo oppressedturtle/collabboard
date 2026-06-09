@@ -42,3 +42,22 @@ layout/router, ESLint + Prettier.
 
 **Next:** Server skeleton — Express + TypeScript, dotenv env config, `/health`
 endpoint, pino structured logging.
+
+## 2026-06-09 — Phase 0: MongoDB + Docker (manual coder session)
+
+**Done:**
+- Mongoose connection layer (`server/src/lib/db.ts`): explicit connect-before-listen
+  with retry/backoff, connection event logging, fast buffer timeouts, graceful
+  `disconnectDb()`.
+- Wired DB into startup/shutdown (`server.ts`): async start connects first; SIGTERM/
+  SIGINT now drain HTTP then close Mongo, with a forced-exit safety timer.
+- Health: `/health` now reports `db` state; added `/health/ready` readiness probe
+  (503 until Mongo is connected) + test.
+- Docker: multi-stage `server/Dockerfile` (non-root, healthcheck), `.dockerignore`,
+  and root `docker-compose.yml` (mongo:7 + server, healthcheck-gated dependency).
+- Verified: typecheck ✓, eslint ✓, vitest 3/3 ✓, `tsc` build ✓, `docker compose config` ✓.
+
+**Roadmap:** Phase 0 — 4/5 items done (client scaffold remains).
+
+**Next:** Client — React + TypeScript (Vite) + Tailwind, base layout/router, then add
+client Dockerfile + client service to compose to complete Phase 0.
