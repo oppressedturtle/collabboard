@@ -171,3 +171,19 @@ checkbox: board settings + invite-members UI; then lists/columns (Phase 2 item 4
 client rendering of lists.
 
 **Next:** Client — render + create lists (columns) on the board detail page.
+
+## 2026-06-09 — Phase 2: Lists UI on the board page (client)
+
+**Done:**
+- Lists data layer (`lib/lists.ts`): listLists/createList/deleteList.
+- BoardDetailPage now renders columns (horizontal scroll), with role-aware editing:
+  owners/editors get an "Add list" form + per-column delete (optimistic + rollback);
+  viewers see read-only. Loads board + lists in parallel.
+- Test: renders board + lists + add-list form for an owner (mocked fetch).
+  Client 6/6 tests; typecheck ✓, eslint ✓, vite build ✓.
+
+**Roadmap:** Phase 2 functionally complete (boards + roles + lists, API + UI).
+Remaining nicety: board settings / member-invite UI (can fold into Phase 5 polish).
+
+**Next:** Phase 3 — Cards: model (title/desc/labels/assignees/due/position) + CRUD,
+then drag-and-drop across lists with optimistic updates.
