@@ -53,6 +53,9 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
+  // --- Application URL (used in email links) ---
+  APP_URL: z.string().url().default('http://localhost:5173'),
+
   // --- Email (SMTP / Mailhog in dev) ---
   // Set SMTP_HOST=disabled to silence all email sending (useful in CI).
   SMTP_HOST: z.string().default('localhost'),

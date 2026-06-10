@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 
 import { env } from '../config/env.js';
@@ -8,21 +9,28 @@ export interface TokenPayload {
   email: string;
 }
 
+export interface RefreshTokenPayload extends TokenPayload {
+  /** JWT ID — used for server-side revocation. */
+  jti: string;
+}
+
 type ExpiresIn = SignOptions['expiresIn'];
 
-function sign(payload: TokenPayload, secret: string, ttl: string): string {
-  return jwt.sign(payload, secret, { expiresIn: ttl as ExpiresIn });
-}
-
 export function signAccessToken(payload: TokenPayload): string {
-  return sign(payload, env.JWT_ACCESS_SECRET, env.ACCESS_TOKEN_TTL);
+  return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+    expiresIn: env.ACCESS_TOKEN_TTL as ExpiresIn,
+  });
 }
 
-export function signRefreshToken(payload: TokenPayload): string {
-  return sign(payload, env.JWT_REFRESH_SECRET, env.REFRESH_TOKEN_TTL);
+export function signRefreshToken(payload: TokenPayload): { token: string; jti: string } {
+  const jti = randomUUID();
+  const token = jwt.sign({ ...payload, jti }, env.JWT_REFRESH_SECRET, {
+    expiresIn: env.REFRESH_TOKEN_TTL as ExpiresIn,
+  });
+  return { token, jti };
 }
 
-function normalize(decoded: string | JwtPayload): TokenPayload {
+function normalizeAccess(decoded: string | JwtPayload): TokenPayload {
   if (
     typeof decoded === 'string' ||
     typeof decoded.sub !== 'string' ||
@@ -33,10 +41,37 @@ function normalize(decoded: string | JwtPayload): TokenPayload {
   return { sub: decoded.sub, email: decoded.email };
 }
 
-export function verifyAccessToken(token: string): TokenPayload {
-  return normalize(jwt.verify(token, env.JWT_ACCESS_SECRET));
+function normalizeRefresh(decoded: string | JwtPayload): RefreshTokenPayload {
+  if (
+    typeof decoded === 'string' ||
+    typeof decoded.sub !== 'string' ||
+    typeof decoded.email !== 'string' ||
+    typeof decoded.jti !== 'string'
+  ) {
+    throw new Error('Invalid refresh token payload');
+  }
+  return { sub: decoded.sub, email: decoded.email, jti: decoded.jti };
 }
 
-export function verifyRefreshToken(token: string): TokenPayload {
-  return normalize(jwt.verify(token, env.JWT_REFRESH_SECRET));
+export function verifyAccessToken(token: string): TokenPayload {
+  return normalizeAccess(jwt.verify(token, env.JWT_ACCESS_SECRET));
+}
+
+export function verifyRefreshToken(token: string): RefreshTokenPayload {
+  return normalizeRefresh(jwt.verify(token, env.JWT_REFRESH_SECRET));
+}
+
+/** Parse the TTL string (e.g. "7d", "15m") to milliseconds. */
+export function parseTtlMs(ttl: string): number {
+  const match = /^(\d+)([smhd])$/.exec(ttl);
+  if (!match) return 7 * 24 * 60 * 60 * 1000; // fallback: 7 days
+  const n = parseInt(match[1] ?? '0', 10);
+  const unit = match[2] ?? 'd';
+  const multipliers: Record<string, number> = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+  return n * (multipliers[unit] ?? multipliers['d']!);
 }

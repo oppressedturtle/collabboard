@@ -6,9 +6,11 @@ import {
 } from 'express';
 import { rateLimit } from 'express-rate-limit';
 
+import { env, isTest } from '../config/env.js';
 import { clearAuthCookies, REFRESH_COOKIE, setAuthCookies } from '../lib/cookies.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import {
+  parseTtlMs,
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
@@ -17,6 +19,7 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
+import { RefreshTokenModel } from '../models/RefreshToken.js';
 import { UserModel } from '../models/User.js';
 import {
   loginSchema,
@@ -28,19 +31,25 @@ import {
 export const authRouter = Router();
 
 // Throttle credential endpoints to slow down brute-force / enumeration.
+// Bypassed in test mode so integration tests don't trip the window.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },
+  skip: () => isTest,
 });
 
-function issueSession(res: Response, payload: TokenPayload): void {
+async function issueSession(res: Response, payload: TokenPayload): Promise<void> {
+  const { token: refreshToken, jti } = signRefreshToken(payload);
   setAuthCookies(res, {
     accessToken: signAccessToken(payload),
-    refreshToken: signRefreshToken(payload),
+    refreshToken,
   });
+  // Store the JTI so we can revoke it on logout.
+  const expiresAt = new Date(Date.now() + parseTtlMs(env.REFRESH_TOKEN_TTL));
+  await RefreshTokenModel.create({ jti, userId: payload.sub, expiresAt });
 }
 
 authRouter.post(
@@ -59,7 +68,7 @@ authRouter.post(
       const passwordHash = await hashPassword(password);
       const user = await UserModel.create({ email, passwordHash, name });
 
-      issueSession(res, { sub: user.id, email: user.email });
+      await issueSession(res, { sub: user.id, email: user.email });
       res.status(201).json({ user: user.toJSON() });
     } catch (err) {
       next(err);
@@ -86,7 +95,7 @@ authRouter.post(
         throw new HttpError(401, 'Invalid credentials');
       }
 
-      issueSession(res, { sub: user.id, email: user.email });
+      await issueSession(res, { sub: user.id, email: user.email });
       res.json({ user: user.toJSON() });
     } catch (err) {
       next(err);
@@ -94,7 +103,7 @@ authRouter.post(
   },
 );
 
-authRouter.post('/refresh', (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/refresh', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const cookies = req.cookies as Record<string, string> | undefined;
     const token = cookies?.[REFRESH_COOKIE];
@@ -103,15 +112,33 @@ authRouter.post('/refresh', (req: Request, res: Response, next: NextFunction) =>
     }
 
     const payload = verifyRefreshToken(token);
-    // Rotate both tokens on every refresh.
-    issueSession(res, { sub: payload.sub, email: payload.email });
+
+    // Verify the JTI is still in the store (not yet revoked) and delete it.
+    const stored = await RefreshTokenModel.findOneAndDelete({ jti: payload.jti });
+    if (!stored) {
+      throw new HttpError(401, 'Refresh token has been revoked');
+    }
+
+    // Rotate: issue a fresh pair and store the new JTI.
+    await issueSession(res, { sub: payload.sub, email: payload.email });
     res.json({ ok: true });
-  } catch {
-    next(new HttpError(401, 'Invalid or expired refresh token'));
+  } catch (err) {
+    next(err instanceof HttpError ? err : new HttpError(401, 'Invalid or expired refresh token'));
   }
 });
 
-authRouter.post('/logout', (_req: Request, res: Response) => {
+authRouter.post('/logout', async (req: Request, res: Response) => {
+  // Revoke the refresh token JTI if present (best-effort — clear cookies regardless).
+  try {
+    const cookies = req.cookies as Record<string, string> | undefined;
+    const token = cookies?.[REFRESH_COOKIE];
+    if (token) {
+      const payload = verifyRefreshToken(token);
+      await RefreshTokenModel.deleteOne({ jti: payload.jti });
+    }
+  } catch {
+    // Token absent or already expired — nothing to revoke.
+  }
   clearAuthCookies(res);
   res.json({ ok: true });
 });

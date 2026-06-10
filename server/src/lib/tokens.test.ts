@@ -18,9 +18,11 @@ describe('tokens', () => {
   });
 
   it('round-trips a refresh token', () => {
-    const token = signRefreshToken(payload);
+    const { token, jti } = signRefreshToken(payload);
     const decoded = verifyRefreshToken(token);
-    expect(decoded).toEqual(payload);
+    expect(decoded.sub).toBe(payload.sub);
+    expect(decoded.email).toBe(payload.email);
+    expect(decoded.jti).toBe(jti);
   });
 
   it('rejects an access token verified with the refresh secret', () => {

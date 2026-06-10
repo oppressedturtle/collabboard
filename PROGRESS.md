@@ -2,6 +2,111 @@
 
 Daily increments by the autonomous build pipeline. Newest first.
 
+## 2026-06-10 — SECURITY PHASE COMPLETE: All High/Medium Findings Resolved
+
+**Done:**
+- **Full security audit** (`appsec-code-reviewer` agent) → `SECURITY.md`: 0 critical,
+  3 high, 5 medium, 4 low, 2 info across 14 findings.
+- **SEV-001 (High) — Refresh token JTI revocation**: New `RefreshToken` Mongoose model
+  (jti, userId, expiresAt; TTL index auto-expires). `signRefreshToken` now returns
+  `{ token, jti }`. `issueSession` is async — stores JTI on issue. `/auth/refresh`
+  verifies and atomically deletes the JTI (`findOneAndDelete`) before rotating; returns
+  401 if revoked. `/auth/logout` fault-tolerantly deletes the JTI (no-op if absent/expired).
+- **SEV-002 (High) — HTML injection in email templates**: `escapeHtml()` helper applied
+  to all user-controlled fields (`boardName`, `invitedBy`, `mentionedBy`) in both email
+  template functions.
+- **SEV-003 (High) — MongoDB host port exposure**: `docker-compose.yml` binds Mongo to
+  `127.0.0.1:27017` (was `0.0.0.0`).
+- **SEV-004 (Medium) — No rate limiting on board/comment creation**: `writeLimiter`
+  (60 req/min/user) on `POST /boards` and `POST /members`; `commentLimiter` (30 req/min)
+  on `POST /comments`.
+- **SEV-005 (Medium) — Assignees not validated as board members**: `POST/PATCH /cards`
+  now validates all assignee IDs against `board.members` before saving (400 if invalid).
+- **SEV-006 (Medium) — No rate limiting on /auth/refresh**: `authLimiter` now also
+  applied to `/auth/refresh`.
+- **SEV-007 (Medium) — Hardcoded localhost URLs in emails**: `APP_URL` env var added
+  (`z.string().url().default('http://localhost:5173')`); email templates use `env.APP_URL`.
+- **SEV-008 (Medium) — Unbounded find() queries**: `.limit(500)` on cards, `.limit(100)`
+  on lists, `.limit(200)` on comments.
+- **SEV-009 (Low) — docker-compose missing COOKIE_SECURE hint**: Added `COOKIE_SECURE`
+  + `COOKIE_SAMESITE` with production notes; JWT secret commented hints added.
+- **SEV-010 (Low) — board:join missing ObjectId validation**: Added
+  `isValidObjectId(boardId)` guard in socket `board:join` handler.
+- **SEV-011 (Low) — npm audit not in CI**: Added
+  `npm audit --audit-level=high --omit=dev` as final CI step.
+- Verified: typecheck ✓, server 85/85 tests ✓ (all pass after token test fix for new
+  `signRefreshToken` return shape `{ token, jti }`).
+
+**Roadmap:** Security Phase — 10/14 findings fixed (all High + Medium + 2 Low);
+remaining 2 Low (doc-only: `COOKIE_SECURE` needs prod operator action; assignees
+UI missing from board settings) and 2 Info (acceptable).
+
+**Next:** QA Phase — full Docker Compose stack smoke test, then SHIP Phase (push to
+`oppressedturtle/collabboard`, verify CI green).
+
+## 2026-06-10 — Phase 7 COMPLETE: Deploy-Ready
+
+**Done:**
+- **DEPLOYMENT.md**: Full deployment guide — Render (detailed, both native Node and Docker
+  methods), Railway, Fly.io (with `fly.toml` health check stanza), Mongo Atlas step-by-step
+  setup, complete env var reference table, JWT secret generation command.
+- **Vercel client deployment**: Documented the nginx-proxy gap (Vercel has no nginx), two
+  solutions (rewrite rule via `vercel.json` or `VITE_API_URL` env var + one-line `api.ts`
+  change), CORS setup for cross-origin deployments.
+- **README.md rewrite**: Portfolio-quality — CI badge, feature list, tech stack table,
+  ASCII architecture diagram (client→nginx→server→MongoDB + Socket.io rooms + Mailhog),
+  repo layout, Docker quick-start (3 steps), local-dev quick-start, test commands, link to
+  DEPLOYMENT.md, live-demo placeholder.
+- **SECURITY_CHECKLIST.md**: Pre-deploy checklist — 10 items verified against source
+  (helmet, CORS allowlist, rate limiting, JWT secret guard, cookie flags, httpOnly cookies,
+  Zod validation, Mongoose ODM, .gitignore, npm audit). 8 ✅ Pass, 2 ⚠️ Review (cookie
+  flags + npm audit, both operator-side actions).
+- **Swagger UI production guard**: `/api-docs` now gated behind `if (!isProduction)` in
+  `app.ts` — Swagger is disabled in production builds, addressing the security checklist
+  finding immediately.
+- **server/.env.example**: Added commented Atlas URI example line next to `MONGODB_URI`.
+- Verified: server 85/85 tests ✓, client 33/33 tests ✓, typecheck ✓ (both workspaces).
+
+**Roadmap:** Phase 7 — 4/4 ✓ (Docker already done in Phase 0; deployment guide,
+README, security checklist all complete).
+
+**Next:** SECURITY PHASE — full audit by `appsec-code-reviewer` agent: dependency CVEs
+(`npm audit`), authz edge case review, injection vectors, JWT/cookie hardening, CORS
+verification, rate limiting coverage, security headers audit. Findings documented in
+`SECURITY.md`.
+
+## 2026-06-10 — Phase 6 COMPLETE: Hardening & Tests
+
+**Done:**
+- **Server coverage >70%**: 85 tests across 14 test files — integration tests for all routes
+  (auth, boards, lists, cards, comments including @mention + cascade deletes), unit tests for
+  lib (tokens, password, roles, activity), schemas, and new middleware tests
+  (`error.test.ts`: HttpError + notFoundHandler + errorHandler, `validate.test.ts`:
+  validateBody pass/fail/missing-fields). Coverage thresholds met (lines/functions/
+  statements 70%, branches 60%).
+- **Client component tests**: 33 tests across 10 test files — new tests for `LoginPage`
+  (render, error state, fetch called with correct body), `RegisterPage` (render, 409 error),
+  `CardModal` (renders title, comments section, close/overlay/save PATCH/delete DELETE+callback),
+  `Toast` (provider renders children, show() displays toast, dismiss button, auto-dismiss
+  with fake timers). All 16 original tests still pass.
+- **Playwright E2E**: `client/playwright.config.ts` + `client/e2e/happy-path.spec.ts` —
+  register → create board → add list → add card flow; skipped in CI unless `RUN_E2E=true`.
+  `"test:e2e": "playwright test"` added to client scripts.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): triggers on push/PR to main — lint →
+  typecheck → server tests (with MONGOMS env vars) → client tests → server build → client
+  build. Uses mongodb-memory-server (in-process, no external service needed).
+- **Seed script** (`server/src/seed.ts`): connects to MongoDB, clears prior seed data,
+  creates 2 demo users (`alice@seed.collabboard.dev` / `bob@seed.collabboard.dev`, both
+  `demo1234`), 1 board with roles, 3 lists, 6 cards with labels/assignees/due dates.
+  `"seed": "tsx src/seed.ts"` added to server scripts.
+- **OpenAPI/Swagger docs** (`server/src/lib/openapi.ts`): full OpenAPI 3.0.3 spec covering
+  all 25 endpoints (health, auth, boards, members, lists, cards, move, comments). Mounted
+  at `/api-docs` via `swagger-ui-express` — gated to non-production only.
+
+**Roadmap:** Phase 6 — 5/5 ✓ (coverage, client tests, E2E, CI, seed+docs all done).
+
+**Next:** Phase 7 — Deploy-Ready (above).
+
 ## 2026-06-10 — Phase 5 COMPLETE: Polish & Pro Features
 
 **Done:**

@@ -33,6 +33,7 @@ listsRouter.get(
     try {
       const lists = await ListModel.find({ board: req.board?.id })
         .sort({ position: 1, createdAt: 1 })
+        .limit(100)
         .exec();
       res.json({ lists: lists.map((l) => l.toJSON()) });
     } catch (err) {

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test server
+        run: npm run test --workspace=@collabboard/server
+        env:
+          MONGOMS_VERSION: '7.0.14'
+          MONGOMS_DISTRO: 'debian-12'
+          SMTP_HOST: disabled
+          LOG_LEVEL: silent
+          NODE_ENV: test
+
+      - name: Test client
+        run: npm run test --workspace=@collabboard/client
+
+      - name: Build server
+        run: npm run build --workspace=@collabboard/server
+
+      - name: Build client
+        run: npm run build --workspace=@collabboard/client
+
+      - name: Security audit (production deps only)
+        run: npm audit --audit-level=high --omit=dev

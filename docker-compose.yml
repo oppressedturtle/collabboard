@@ -6,8 +6,9 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Bind to loopback only — never expose MongoDB to the external network.
     ports:
-      - '27017:27017'
+      - '127.0.0.1:27017:27017'
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -32,6 +33,11 @@ services:
       LOG_LEVEL: info
       SMTP_HOST: mailhog
       SMTP_PORT: '1025'
+      # REQUIRED in production — generate with: openssl rand -base64 48
+      # JWT_ACCESS_SECRET: <set via .env file or secrets manager>
+      # JWT_REFRESH_SECRET: <set via .env file or secrets manager>
+      COOKIE_SECURE: 'false'   # set to 'true' behind HTTPS in production
+      COOKIE_SAMESITE: lax
     ports:
       - '4000:4000'
 

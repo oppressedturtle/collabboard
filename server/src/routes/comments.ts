@@ -4,9 +4,11 @@ import {
   type Request,
   type Response,
 } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 
+import { isTest } from '../config/env.js';
 import { sendMentionNotification } from '../lib/mail.js';
 import { emitToBoard } from '../lib/socket.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
@@ -18,6 +20,14 @@ import { CommentModel } from '../models/Comment.js';
 import { UserModel } from '../models/User.js';
 
 export const commentsRouter = Router({ mergeParams: true });
+
+const commentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => req.user?.id ?? (req.ip ?? 'unknown'),
+  skip: () => isTest,
+  message: { error: 'Too many comments, please slow down.' },
+});
 
 const createCommentSchema = z.object({
   text: z.string().trim().min(1).max(2000),
@@ -41,6 +51,7 @@ commentsRouter.get(
 
       const comments = await CommentModel.find({ card: cardId })
         .sort({ createdAt: 1 })
+        .limit(200)
         .populate('author', 'name email')
         .exec();
       res.json({ comments: comments.map((c) => c.toJSON()) });
@@ -53,6 +64,7 @@ commentsRouter.get(
 /** Post a comment. (viewer+ — anyone with access can comment) */
 commentsRouter.post(
   '/',
+  commentLimiter,
   requireBoardRole('viewer'),
   validateBody(createCommentSchema),
   async (req: Request, res: Response, next: NextFunction) => {

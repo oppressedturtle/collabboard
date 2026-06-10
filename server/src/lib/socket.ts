@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from 'http';
 import { Server, type Socket } from 'socket.io';
+import { isValidObjectId } from 'mongoose';
 
 import { env } from '../config/env.js';
 import { BoardModel } from '../models/Board.js';
@@ -61,6 +62,7 @@ export function initSocket(httpServer: HttpServer): Server {
 
     socket.on('board:join', async (boardId: string) => {
       try {
+        if (!boardId || !isValidObjectId(boardId)) return;
         // Verify membership before allowing room entry.
         const board = await BoardModel.findById(boardId).lean();
         if (!board) return;

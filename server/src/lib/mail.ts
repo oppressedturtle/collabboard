@@ -3,6 +3,15 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 let _transporter: nodemailer.Transporter | null = null;
 
 function getTransporter(): nodemailer.Transporter {
@@ -54,15 +63,15 @@ export async function sendBoardInvite(params: {
       '',
       `${inviterName} has added you to the CollabBoard board "${boardName}" as a ${role}.`,
       '',
-      'Sign in at http://localhost:5173 to get started.',
+      `Sign in at ${env.APP_URL} to get started.`,
       '',
       '— CollabBoard',
     ].join('\n'),
     html: `
-      <p>Hi ${toName},</p>
-      <p><strong>${inviterName}</strong> has added you to the CollabBoard board
-      <strong>&ldquo;${boardName}&rdquo;</strong> as a <em>${role}</em>.</p>
-      <p><a href="http://localhost:5173">Sign in to CollabBoard</a> to get started.</p>
+      <p>Hi ${escapeHtml(toName)},</p>
+      <p><strong>${escapeHtml(inviterName)}</strong> has added you to the CollabBoard board
+      <strong>&ldquo;${escapeHtml(boardName)}&rdquo;</strong> as a <em>${escapeHtml(role)}</em>.</p>
+      <p><a href="${escapeHtml(env.APP_URL)}">Sign in to CollabBoard</a> to get started.</p>
     `,
   });
 }
@@ -90,12 +99,12 @@ export async function sendMentionNotification(params: {
       '— CollabBoard',
     ].join('\n'),
     html: `
-      <p>Hi ${toName},</p>
-      <p><strong>${mentionerName}</strong> mentioned you in a comment on
-      <strong>&ldquo;${cardTitle}&rdquo;</strong> in board
-      <strong>&ldquo;${boardName}&rdquo;</strong>:</p>
+      <p>Hi ${escapeHtml(toName)},</p>
+      <p><strong>${escapeHtml(mentionerName)}</strong> mentioned you in a comment on
+      <strong>&ldquo;${escapeHtml(cardTitle)}&rdquo;</strong> in board
+      <strong>&ldquo;${escapeHtml(boardName)}&rdquo;</strong>:</p>
       <blockquote style="border-left:3px solid #ccc;padding-left:1em;color:#555">
-        ${commentText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+        ${escapeHtml(commentText)}
       </blockquote>
     `,
   });

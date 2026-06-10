@@ -43,6 +43,7 @@ cardsRouter.get(
     try {
       const cards = await CardModel.find({ board: req.board?.id })
         .sort({ position: 1, createdAt: 1 })
+        .limit(500)
         .exec();
       res.json({ cards: cards.map((c) => c.toJSON()) });
     } catch (err) {
@@ -128,6 +129,11 @@ cardsRouter.patch(
       if (body.description !== undefined) card.description = body.description;
       if (body.labels !== undefined) card.labels = body.labels;
       if (body.assignees !== undefined) {
+        const memberIds = new Set(req.board!.members.map((m) => String(m.user)));
+        const invalid = body.assignees.filter((id) => !memberIds.has(String(id)));
+        if (invalid.length > 0) {
+          throw new HttpError(400, 'Assignees must be board members');
+        }
         card.set('assignees', body.assignees);
       }
       if (body.dueDate !== undefined) {

@@ -4,9 +4,11 @@ import {
   type Request,
   type Response,
 } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { isValidObjectId } from 'mongoose';
 
 import { sendBoardInvite } from '../lib/mail.js';
+import { isTest } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
@@ -27,6 +29,7 @@ import {
   type UpdateBoardInput,
 } from '../schemas/board.js';
 import { cardsRouter } from './cards.js';
+import { commentsRouter } from './comments.js';
 import { listsRouter } from './lists.js';
 
 export const boardsRouter = Router();
@@ -34,9 +37,19 @@ export const boardsRouter = Router();
 // Every board route requires authentication.
 boardsRouter.use(requireAuth);
 
-// Board-scoped columns + cards (each route authorizes via requireBoardRole).
+// Throttle write operations to prevent resource exhaustion.
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.user?.id ?? (req.ip ?? 'unknown'),
+  skip: () => isTest,
+  message: { error: 'Too many requests, please slow down.' },
+});
+
+// Board-scoped resources (each sub-router authorizes via requireBoardRole).
 boardsRouter.use('/:id/lists', listsRouter);
 boardsRouter.use('/:id/cards', cardsRouter);
+boardsRouter.use('/:id/cards/:cardId/comments', commentsRouter);
 
 /** List boards the current user is a member of. */
 boardsRouter.get(
@@ -56,6 +69,7 @@ boardsRouter.get(
 /** Create a board; the creator becomes its owner. */
 boardsRouter.post(
   '/',
+  writeLimiter,
   validateBody(createBoardSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -126,6 +140,7 @@ boardsRouter.delete(
 /** Invite a member by email (owner only). */
 boardsRouter.post(
   '/:id/members',
+  writeLimiter,
   requireBoardRole('owner'),
   validateBody(addMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {

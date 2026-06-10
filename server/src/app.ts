@@ -3,14 +3,15 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
 
-import { env } from './config/env.js';
+import { env, isProduction } from './config/env.js';
+import { openApiSpec } from './lib/openapi.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './routes/auth.js';
 import { boardsRouter } from './routes/boards.js';
 import { healthRouter } from './routes/health.js';
-import { commentsRouter } from './routes/comments.js';
 
 /**
  * Build and configure the Express application. Kept separate from the HTTP
@@ -44,11 +45,16 @@ export function createApp(): Express {
   // Per-request structured logging.
   app.use(pinoHttp({ logger }));
 
+  // API docs — served in development and test only; hidden in production to
+  // avoid advertising the full API surface to anonymous users.
+  if (!isProduction) {
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+  }
+
   // Routes.
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);
   app.use('/boards', boardsRouter);
-  app.use('/boards/:boardId/cards/:cardId/comments', commentsRouter);
 
   // Fallbacks.
   app.use(notFoundHandler);
