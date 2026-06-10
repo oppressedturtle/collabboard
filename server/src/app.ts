@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './routes/auth.js';
 import { boardsRouter } from './routes/boards.js';
 import { healthRouter } from './routes/health.js';
+import { commentsRouter } from './routes/comments.js';
 
 /**
  * Build and configure the Express application. Kept separate from the HTTP
@@ -47,6 +48,7 @@ export function createApp(): Express {
   app.use('/health', healthRouter);
   app.use('/auth', authRouter);
   app.use('/boards', boardsRouter);
+  app.use('/boards/:boardId/cards/:cardId/comments', commentsRouter);
 
   // Fallbacks.
   app.use(notFoundHandler);

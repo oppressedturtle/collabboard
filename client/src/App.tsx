@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ToastProvider } from './components/Toast';
 import { BoardDetailPage } from './pages/BoardDetailPage';
 import { BoardsPage } from './pages/BoardsPage';
 import { HomePage } from './pages/HomePage';
@@ -16,20 +17,22 @@ import { RegisterPage } from './pages/RegisterPage';
  */
 export default function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <ToastProvider>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Authenticated-only routes. */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/boards" element={<BoardsPage />} />
-          <Route path="/boards/:id" element={<BoardDetailPage />} />
-        </Route>
+          {/* Authenticated-only routes. */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/boards" element={<BoardsPage />} />
+            <Route path="/boards/:id" element={<BoardDetailPage />} />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Layout>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Layout>
+    </ToastProvider>
   );
 }

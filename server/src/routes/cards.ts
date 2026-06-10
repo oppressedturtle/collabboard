@@ -13,6 +13,7 @@ import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
 import { ActivityModel } from '../models/Activity.js';
 import { CardModel } from '../models/Card.js';
+import { CommentModel } from '../models/Comment.js';
 import { ListModel } from '../models/List.js';
 import {
   createCardSchema,
@@ -217,7 +218,8 @@ cardsRouter.delete(
       if (result.deletedCount === 0) {
         throw new HttpError(404, 'Card not found');
       }
-      // Cascade: the card's activity log goes with it.
+      // Cascade: the card's comments and activity log go with it.
+      await CommentModel.deleteMany({ card: cardId, board: req.board?.id });
       await ActivityModel.deleteMany({ card: cardId, board: req.board?.id });
       const boardId = String(req.board?.id);
       emitToBoard(boardId, 'card:deleted', {

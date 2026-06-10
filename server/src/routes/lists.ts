@@ -12,6 +12,7 @@ import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
 import { ActivityModel } from '../models/Activity.js';
 import { CardModel } from '../models/Card.js';
+import { CommentModel } from '../models/Comment.js';
 import { ListModel } from '../models/List.js';
 import {
   createListSchema,
@@ -127,6 +128,7 @@ listsRouter.delete(
         .lean();
       const cardIds = cards.map((c) => c._id);
       if (cardIds.length > 0) {
+        await CommentModel.deleteMany({ card: { $in: cardIds } });
         await ActivityModel.deleteMany({ card: { $in: cardIds } });
       }
       await CardModel.deleteMany({ list: listId, board: req.board?.id });

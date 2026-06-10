@@ -52,6 +52,18 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+
+  // --- Email (SMTP / Mailhog in dev) ---
+  // Set SMTP_HOST=disabled to silence all email sending (useful in CI).
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  SMTP_FROM: z.string().default('"CollabBoard" <noreply@collabboard.local>'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -11,8 +11,10 @@ import { Link, useParams } from 'react-router-dom';
 
 import { BoardColumn } from '../components/board/BoardColumn';
 import { CardModal } from '../components/board/CardModal';
+import { useToast } from '../components/useToast';
 import { useAuth } from '../auth/context';
 import { ApiError } from '../lib/api';
+import { type Comment } from '../lib/comments';
 import { getSocket } from '../lib/socket';
 import { applyDragEnd, cardsForList } from '../lib/boardDnd';
 import { type Board, getBoard } from '../lib/boards';
@@ -29,9 +31,19 @@ interface Viewer {
   email: string;
 }
 
+// Due-soon threshold: cards due within this many days.
+const DUE_SOON_DAYS = 3;
+
+function isDueSoon(dueDate: string | null): boolean {
+  if (!dueDate) return false;
+  const diff = new Date(dueDate).getTime() - Date.now();
+  return diff > 0 && diff <= DUE_SOON_DAYS * 86_400_000;
+}
+
 export function BoardDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [board, setBoard] = useState<Board | null>(null);
   const [lists, setLists] = useState<List[]>([]);
@@ -40,11 +52,20 @@ export function BoardDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
 
+  // Filter state
+  const [search, setSearch] = useState('');
+  const [labelFilter, setLabelFilter] = useState('');
+  const [dueSoonOnly, setDueSoonOnly] = useState(false);
+
   const [newListTitle, setNewListTitle] = useState('');
   const [addingList, setAddingList] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
-  // Keep a ref to the current cards so socket handlers don't close over stale state.
+  // Per-card comment lists fed from socket events (so open modal stays in sync)
+  const [socketComments, setSocketComments] = useState<Map<string, Comment[]>>(
+    new Map(),
+  );
+
   const cardsRef = useRef(cards);
   useEffect(() => { cardsRef.current = cards; }, [cards]);
 
@@ -73,7 +94,7 @@ export function BoardDetailPage() {
         if (active) {
           setError(
             err instanceof ApiError && err.status === 404
-              ? 'Board not found, or you don’t have access.'
+              ? "Board not found, or you don't have access."
               : 'Could not load this board.',
           );
         }
@@ -94,12 +115,11 @@ export function BoardDetailPage() {
     socket.emit('board:join', id);
 
     const onCardCreated = (data: { card: Card; actorId: string }) => {
-      if (data.actorId === user?.id) return; // already applied optimistically
+      if (data.actorId === user?.id) return;
       setCards((prev) =>
-        prev.some((c) => c.id === data.card.id)
-          ? prev
-          : [...prev, data.card],
+        prev.some((c) => c.id === data.card.id) ? prev : [...prev, data.card],
       );
+      toast(`${data.card.title} was added`, 'info');
     };
 
     const onCardUpdated = (data: { card: Card; actorId: string }) => {
@@ -107,7 +127,6 @@ export function BoardDetailPage() {
       setCards((prev) =>
         prev.map((c) => (c.id === data.card.id ? data.card : c)),
       );
-      // Sync open modal if it's the same card.
       setSelectedCard((prev) =>
         prev?.id === data.card.id ? data.card : prev,
       );
@@ -123,9 +142,7 @@ export function BoardDetailPage() {
     const onCardDeleted = (data: { cardId: string; actorId: string }) => {
       if (data.actorId === user?.id) return;
       setCards((prev) => prev.filter((c) => c.id !== data.cardId));
-      setSelectedCard((prev) =>
-        prev?.id === data.cardId ? null : prev,
-      );
+      setSelectedCard((prev) => (prev?.id === data.cardId ? null : prev));
     };
 
     const onListCreated = (data: { list: List; actorId: string }) => {
@@ -150,6 +167,38 @@ export function BoardDetailPage() {
       setCards((prev) => prev.filter((c) => c.list !== data.listId));
     };
 
+    const onCommentCreated = (data: {
+      comment: Comment;
+      cardId: string;
+      actorId: string;
+    }) => {
+      if (data.actorId === user?.id) return;
+      setSocketComments((prev) => {
+        const existing = prev.get(data.cardId) ?? [];
+        const next = new Map(prev);
+        next.set(data.cardId, [...existing, data.comment]);
+        return next;
+      });
+    };
+
+    const onCommentDeleted = (data: {
+      commentId: string;
+      cardId: string;
+      actorId: string;
+    }) => {
+      if (data.actorId === user?.id) return;
+      setSocketComments((prev) => {
+        const existing = prev.get(data.cardId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(
+          data.cardId,
+          existing.filter((c) => c.id !== data.commentId),
+        );
+        return next;
+      });
+    };
+
     const onPresenceUpdate = (data: { boardId: string; viewers: Viewer[] }) => {
       if (data.boardId !== id) return;
       setViewers(data.viewers.filter((v) => v.userId !== user?.id));
@@ -162,6 +211,8 @@ export function BoardDetailPage() {
     socket.on('list:created', onListCreated);
     socket.on('list:updated', onListUpdated);
     socket.on('list:deleted', onListDeleted);
+    socket.on('comment:created', onCommentCreated);
+    socket.on('comment:deleted', onCommentDeleted);
     socket.on('presence:update', onPresenceUpdate);
 
     return () => {
@@ -173,13 +224,35 @@ export function BoardDetailPage() {
       socket.off('list:created', onListCreated);
       socket.off('list:updated', onListUpdated);
       socket.off('list:deleted', onListDeleted);
+      socket.off('comment:created', onCommentCreated);
+      socket.off('comment:deleted', onCommentDeleted);
       socket.off('presence:update', onPresenceUpdate);
       setViewers([]);
     };
-  }, [id, user?.id]);
+  }, [id, user?.id, toast]);
 
   const myRole = board?.members.find((m) => m.user === user?.id)?.role;
   const canEdit = myRole === 'owner' || myRole === 'editor';
+  const isBoardOwner = myRole === 'owner';
+
+  // Unique labels across all cards for the filter dropdown
+  const allLabels = [...new Set(cards.flatMap((c) => c.labels))].sort();
+
+  // Client-side filter
+  const filteredCards = cards.filter((card) => {
+    if (
+      search &&
+      !card.title.toLowerCase().includes(search.toLowerCase()) &&
+      !card.description.toLowerCase().includes(search.toLowerCase())
+    ) {
+      return false;
+    }
+    if (labelFilter && !card.labels.includes(labelFilter)) return false;
+    if (dueSoonOnly && !isDueSoon(card.dueDate)) return false;
+    return true;
+  });
+
+  const isFiltered = Boolean(search || labelFilter || dueSoonOnly);
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -188,14 +261,14 @@ export function BoardDetailPage() {
     if (!result) return;
 
     const previous = cards;
-    setCards(result.cards); // optimistic
+    setCards(result.cards);
     apiMoveCard(
       id,
       result.moved.cardId,
       result.moved.listId,
       result.moved.position,
     ).catch(() => {
-      setCards(previous); // rollback
+      setCards(previous);
       setError('Could not move the card.');
     });
   }
@@ -206,7 +279,7 @@ export function BoardDetailPage() {
       const card = await apiCreateCard(id, listId, title);
       setCards((prev) => [...prev, card]);
     } catch {
-      setError('Could not add the card.');
+      toast('Could not add the card.', 'error');
     }
   }
 
@@ -220,7 +293,7 @@ export function BoardDetailPage() {
       setLists((prev) => [...prev, list]);
       setNewListTitle('');
     } catch {
-      setError('Could not add the list.');
+      toast('Could not add the list.', 'error');
     } finally {
       setAddingList(false);
     }
@@ -237,12 +310,16 @@ export function BoardDetailPage() {
     } catch {
       setLists(prevLists);
       setCards(prevCards);
-      setError('Could not delete the list.');
+      toast('Could not delete the list.', 'error');
     }
   }
 
   if (loading) {
-    return <p className="py-16 text-center text-sm text-slate-400">Loading…</p>;
+    return (
+      <p className="py-16 text-center text-sm text-slate-400" aria-live="polite">
+        Loading…
+      </p>
+    );
   }
 
   if (error && !board) {
@@ -272,17 +349,22 @@ export function BoardDetailPage() {
         ← Boards
       </Link>
 
-      <div className="mt-2 flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-slate-900 flex-1">{board.name}</h1>
+      {/* Board header */}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <h1 className="flex-1 text-2xl font-bold text-slate-900">{board.name}</h1>
         {viewers.length > 0 && (
-          <div className="flex items-center gap-1" title="Also viewing this board">
+          <div
+            className="flex items-center gap-1"
+            aria-label={`${viewers.length} other ${viewers.length === 1 ? 'person' : 'people'} viewing`}
+          >
             {viewers.slice(0, 5).map((v) => (
               <span
                 key={v.userId}
                 title={v.email}
+                aria-hidden="true"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 ring-2 ring-white"
               >
-                {v.email[0]?.toUpperCase() ?? '?'}
+                {(v.email[0] ?? '?').toUpperCase()}
               </span>
             ))}
             {viewers.length > 5 && (
@@ -295,6 +377,55 @@ export function BoardDetailPage() {
       {board.description && (
         <p className="mt-1 text-sm text-slate-600">{board.description}</p>
       )}
+
+      {/* Filter bar */}
+      <div className="mt-4 flex flex-wrap items-center gap-2" role="search" aria-label="Filter cards">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search cards…"
+          aria-label="Search cards by title or description"
+          className="min-w-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+        />
+
+        {allLabels.length > 0 && (
+          <select
+            value={labelFilter}
+            onChange={(e) => setLabelFilter(e.target.value)}
+            aria-label="Filter by label"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="">All labels</option>
+            {allLabels.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <label className="flex items-center gap-1.5 text-sm text-slate-600 select-none">
+          <input
+            type="checkbox"
+            checked={dueSoonOnly}
+            onChange={(e) => setDueSoonOnly(e.target.checked)}
+            className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          Due soon
+        </label>
+
+        {isFiltered && (
+          <button
+            type="button"
+            onClick={() => { setSearch(''); setLabelFilter(''); setDueSoonOnly(false); }}
+            className="text-sm text-brand-600 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500 rounded"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       {error && (
         <p role="alert" className="mt-2 text-sm text-red-600">
           {error}
@@ -306,12 +437,16 @@ export function BoardDetailPage() {
         collisionDetection={closestCorners}
         onDragEnd={onDragEnd}
       >
-        <div className="mt-6 flex items-start gap-4 overflow-x-auto pb-4">
+        <div
+          className="mt-6 flex items-start gap-4 overflow-x-auto pb-4"
+          role="region"
+          aria-label="Board columns"
+        >
           {lists.map((list) => (
             <BoardColumn
               key={list.id}
               list={list}
-              cards={cardsForList(cards, list.id)}
+              cards={cardsForList(filteredCards, list.id)}
               canEdit={canEdit}
               onAddCard={onAddCard}
               onDeleteList={onDeleteList}
@@ -323,6 +458,7 @@ export function BoardDetailPage() {
             <form
               onSubmit={onAddList}
               className="flex w-72 shrink-0 flex-col gap-2 rounded-xl bg-slate-50 p-3"
+              aria-label="Add a list"
             >
               <input
                 type="text"
@@ -330,12 +466,13 @@ export function BoardDetailPage() {
                 onChange={(e) => setNewListTitle(e.target.value)}
                 placeholder="Add a list…"
                 maxLength={120}
+                aria-label="New list title"
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
               <button
                 type="submit"
                 disabled={addingList || newListTitle.trim().length === 0}
-                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 {addingList ? 'Adding…' : 'Add list'}
               </button>
@@ -353,6 +490,9 @@ export function BoardDetailPage() {
           boardId={id}
           card={selectedCard}
           canEdit={canEdit}
+          currentUserId={user?.id}
+          isBoardOwner={isBoardOwner}
+          externalComments={socketComments.get(selectedCard.id)}
           onClose={() => setSelectedCard(null)}
           onSaved={(updated) =>
             setCards((prev) =>

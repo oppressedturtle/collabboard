@@ -30,6 +30,8 @@ services:
       MONGODB_URI: mongodb://mongo:27017/collabboard
       CORS_ORIGIN: http://localhost:5173
       LOG_LEVEL: info
+      SMTP_HOST: mailhog
+      SMTP_PORT: '1025'
     ports:
       - '4000:4000'
 
@@ -41,6 +43,13 @@ services:
       - server
     ports:
       - '5173:80'
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - '1025:1025'   # SMTP
+      - '8025:8025'   # Web UI — open http://localhost:8025 to inspect emails
 
 volumes:
   mongo-data:

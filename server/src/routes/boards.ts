@@ -6,6 +6,7 @@ import {
 } from 'express';
 import { isValidObjectId } from 'mongoose';
 
+import { sendBoardInvite } from '../lib/mail.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
@@ -13,6 +14,7 @@ import { validateBody } from '../middleware/validate.js';
 import { ActivityModel } from '../models/Activity.js';
 import { BoardModel } from '../models/Board.js';
 import { CardModel } from '../models/Card.js';
+import { CommentModel } from '../models/Comment.js';
 import { ListModel } from '../models/List.js';
 import { UserModel } from '../models/User.js';
 import {
@@ -108,7 +110,8 @@ boardsRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const boardId = req.board?.id;
-      // Cascade: remove the board's activity, cards and lists, then itself.
+      // Cascade: remove the board's comments, activity, cards, lists, then itself.
+      await CommentModel.deleteMany({ board: boardId });
       await ActivityModel.deleteMany({ board: boardId });
       await CardModel.deleteMany({ board: boardId });
       await ListModel.deleteMany({ board: boardId });
@@ -143,6 +146,19 @@ boardsRouter.post(
 
       board.members.push({ user: user._id, role });
       await board.save();
+
+      // Best-effort invite email (non-fatal).
+      const inviterName = (
+        await UserModel.findById(req.user?.id).select('name').lean()
+      )?.name ?? 'Someone';
+      void sendBoardInvite({
+        toEmail: user.email,
+        toName: user.name,
+        boardName: board.name,
+        inviterName,
+        role,
+      });
+
       res.status(201).json({ board: board.toJSON() });
     } catch (err) {
       next(err);

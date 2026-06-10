@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import {
   type Card,
@@ -9,6 +9,14 @@ import {
   listCardActivity,
   updateCard as apiUpdateCard,
 } from '../../lib/cards';
+import {
+  type Comment,
+  authorName,
+  createComment as apiCreateComment,
+  deleteComment as apiDeleteComment,
+  listComments,
+} from '../../lib/comments';
+import { useToast } from '../useToast';
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -28,9 +36,13 @@ interface CardModalProps {
   boardId: string;
   card: Card;
   canEdit: boolean;
+  currentUserId?: string;
+  isBoardOwner?: boolean;
   onClose: () => void;
   onSaved: (card: Card) => void;
   onDeleted: (cardId: string) => void;
+  /** Called when a comment is added externally (from socket) */
+  externalComments?: Comment[];
 }
 
 function toDateInput(iso: string | null): string {
@@ -43,10 +55,14 @@ export function CardModal({
   boardId,
   card,
   canEdit,
+  currentUserId,
+  isBoardOwner,
   onClose,
   onSaved,
   onDeleted,
+  externalComments,
 }: CardModalProps) {
+  const { toast } = useToast();
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description);
   const [labels, setLabels] = useState(card.labels.join(', '));
@@ -54,21 +70,45 @@ export function CardModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activity, setActivity] = useState<CardActivity[] | null>(null);
+  const [comments, setComments] = useState<Comment[] | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
 
-  // Load the card's activity log when the modal opens.
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Sync external comments (from socket events) into local state.
+  useEffect(() => {
+    if (externalComments) setComments(externalComments);
+  }, [externalComments]);
+
+  // Load the card's activity log and comments when the modal opens.
   useEffect(() => {
     let cancelled = false;
-    listCardActivity(boardId, card.id)
-      .then((items) => {
-        if (!cancelled) setActivity(items);
+    Promise.all([
+      listCardActivity(boardId, card.id),
+      listComments(boardId, card.id),
+    ])
+      .then(([items, cmts]) => {
+        if (!cancelled) {
+          setActivity(items);
+          setComments(cmts);
+        }
       })
       .catch(() => {
-        if (!cancelled) setActivity([]);
+        if (!cancelled) {
+          setActivity([]);
+          setComments([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [boardId, card.id]);
+
+  // Focus the close button when modal opens (trap for accessibility).
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
 
   // Close on Escape.
   useEffect(() => {
@@ -94,6 +134,7 @@ export function CardModal({
         dueDate: due ? new Date(due).toISOString() : null,
       });
       onSaved(updated);
+      toast('Card saved', 'success');
       onClose();
     } catch {
       setError('Could not save changes.');
@@ -109,6 +150,7 @@ export function CardModal({
     try {
       await apiDeleteCard(boardId, card.id);
       onDeleted(card.id);
+      toast('Card deleted', 'info');
       onClose();
     } catch {
       setError('Could not delete the card.');
@@ -116,9 +158,34 @@ export function CardModal({
     }
   }
 
+  async function onPostComment(e: FormEvent) {
+    e.preventDefault();
+    const text = commentText.trim();
+    if (!text) return;
+    setPostingComment(true);
+    try {
+      const newComment = await apiCreateComment(boardId, card.id, text);
+      setComments((prev) => [...(prev ?? []), newComment]);
+      setCommentText('');
+    } catch {
+      toast('Could not post comment.', 'error');
+    } finally {
+      setPostingComment(false);
+    }
+  }
+
+  async function onDeleteComment(commentId: string) {
+    try {
+      await apiDeleteComment(boardId, card.id, commentId);
+      setComments((prev) => (prev ?? []).filter((c) => c.id !== commentId));
+    } catch {
+      toast('Could not delete comment.', 'error');
+    }
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-20"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-12 sm:pt-20"
       role="dialog"
       aria-modal="true"
       aria-label="Card details"
@@ -134,6 +201,7 @@ export function CardModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={280}
+              aria-label="Card title"
               className="flex-1 rounded-md border border-transparent px-1 text-lg font-semibold text-slate-900 hover:border-slate-200 focus:border-brand-500 focus:outline-none"
             />
           ) : (
@@ -142,10 +210,11 @@ export function CardModal({
             </h2>
           )}
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             ✕
           </button>
@@ -171,11 +240,9 @@ export function CardModal({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">
-                Labels
-              </span>
+              <span className="text-sm font-medium text-slate-700">Labels</span>
               <input
                 value={labels}
                 onChange={(e) => setLabels(e.target.value)}
@@ -189,9 +256,7 @@ export function CardModal({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">
-                Due date
-              </span>
+              <span className="text-sm font-medium text-slate-700">Due date</span>
               <input
                 type="date"
                 value={due}
@@ -203,6 +268,84 @@ export function CardModal({
           </div>
         </div>
 
+        {/* Comments */}
+        <section className="mt-6 border-t border-slate-100 pt-4">
+          <h3 className="text-sm font-semibold text-slate-700">Comments</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Mention board members with @their@email.com
+          </p>
+
+          {comments === null ? (
+            <p className="mt-2 text-sm text-slate-400">Loading…</p>
+          ) : (
+            <>
+              {comments.length > 0 && (
+                <ul className="mt-3 space-y-3" aria-label="Comments">
+                  {comments.map((c) => {
+                    const isOwnComment =
+                      (typeof c.author === 'object' ? c.author.id : c.author) ===
+                      currentUserId;
+                    const canDelete = isOwnComment || isBoardOwner;
+                    return (
+                      <li key={c.id} className="flex gap-3 text-sm">
+                        <span
+                          aria-hidden
+                          className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
+                        >
+                          {(authorName(c.author)[0] ?? '?').toUpperCase()}
+                        </span>
+                        <div className="flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-medium text-slate-800">
+                              {authorName(c.author)}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {relativeTime(c.createdAt)}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-slate-700 whitespace-pre-wrap break-words">
+                            {c.text}
+                          </p>
+                        </div>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => void onDeleteComment(c.id)}
+                            aria-label="Delete comment"
+                            className="self-start rounded p-1 text-slate-300 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              <form onSubmit={(e) => void onPostComment(e)} className="mt-3">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Add a comment…"
+                  aria-label="New comment"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                />
+                <button
+                  type="submit"
+                  disabled={postingComment || commentText.trim().length === 0}
+                  className="mt-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {postingComment ? 'Posting…' : 'Post'}
+                </button>
+              </form>
+            </>
+          )}
+        </section>
+
+        {/* Activity */}
         <section className="mt-6 border-t border-slate-100 pt-4">
           <h3 className="text-sm font-semibold text-slate-700">Activity</h3>
           {activity === null ? (
@@ -210,7 +353,7 @@ export function CardModal({
           ) : activity.length === 0 ? (
             <p className="mt-2 text-sm text-slate-400">No activity yet.</p>
           ) : (
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-2 space-y-2" aria-label="Activity log">
               {activity.map((a) => (
                 <li key={a.id} className="flex gap-2 text-sm text-slate-600">
                   <span
@@ -237,25 +380,25 @@ export function CardModal({
           <div className="mt-6 flex items-center justify-between">
             <button
               type="button"
-              onClick={onDelete}
+              onClick={() => void onDelete()}
               disabled={busy}
-              className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+              className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-red-300"
             >
-              Delete
+              Delete card
             </button>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md px-4 py-2 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-300 hover:bg-slate-100"
+                className="rounded-md px-4 py-2 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={onSave}
+                onClick={() => void onSave()}
                 disabled={busy}
-                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 {busy ? 'Saving…' : 'Save'}
               </button>

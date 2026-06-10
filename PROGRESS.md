@@ -2,6 +2,42 @@
 
 Daily increments by the autonomous build pipeline. Newest first.
 
+## 2026-06-10 — Phase 5 COMPLETE: Polish & Pro Features
+
+**Done:**
+- **Toast system**: `ToastContext` + `ToastProvider` + `useToast` hook. Fixed
+  bottom-right toasts (success/error/info), auto-dismiss 4s, ARIA live region,
+  dismiss button, keyboard-accessible. Wired into boards/cards/lists mutations.
+- **Search/filter bar** on BoardDetailPage: text search (title + description),
+  label dropdown (populated from all cards), "due soon" toggle (within 3 days),
+  clear-filters button. Pure client-side — no round-trips.
+- **Comments**: `Comment` Mongoose model (board/card/author/text/mentions),
+  cascade-deleted with card/list/board. REST routes: `GET/POST/DELETE
+  /boards/:id/cards/:cardId/comments`. Authors can delete own; board owner
+  can delete any. Socket emits `comment:created` / `comment:deleted` to
+  board room. Comments section in `CardModal`: author initials avatar, relative
+  time, delete button, new comment form.
+- **@mention email notifications**: server-side regex scans comment text for
+  `@email@domain` patterns, resolves to board member IDs, sends mention
+  notification emails. Board-invite email on `POST /boards/:id/members`.
+- **Nodemailer / Mailhog**: `server/src/lib/mail.ts` configures nodemailer with
+  SMTP env vars; defaults to Mailhog on `localhost:1025`. Mailhog service added
+  to `docker-compose.yml` (SMTP :1025, Web UI :8025). Set `SMTP_HOST=disabled`
+  to silence email in CI. `.env.example` updated.
+- **Responsive design**: modal uses `sm:` breakpoints (full-screen on mobile),
+  board header wraps on small screens, filter bar wraps, labels grid is 1-col
+  on mobile.
+- **Accessibility**: `role`, `aria-label`, `aria-modal`, `aria-live`, `aria-atomic`
+  on modal/toast/loading/filter bar. Focus on close button on modal open.
+  `focus:ring` on all interactive elements. `aria-label` on all icon buttons.
+- Verified: server 47/47 tests ✓, client 16/16 tests ✓, typecheck ✓, lint ✓,
+  builds ✓ (both).
+
+**Roadmap:** Phase 5 — 5/5 ✓ (search/filter, comments, email, responsive, a11y).
+
+**Next:** Phase 6 — Hardening & Tests: >70% server coverage, client component
+tests, Playwright E2E, GitHub Actions CI, seed script + OpenAPI docs.
+
 ## 2026-06-10 — Phase 4 COMPLETE: Realtime Collaboration (Socket.io)
 
 **Done:**

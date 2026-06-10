@@ -38,11 +38,11 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Conflict handling for concurrent edits (last-write-wins + version field)
 
 ## Phase 5 — Polish & Pro Features
-- [ ] Search/filter cards, labels filter, due-soon view
-- [ ] Comments on cards with @mentions + notifications
-- [ ] Email notifications (invites, mentions) via nodemailer (mailhog in dev)
-- [ ] Responsive design pass, loading/empty/error states, toasts
-- [ ] Accessibility pass (keyboard nav, ARIA, focus management)
+- [x] Search/filter cards, labels filter, due-soon view
+- [x] Comments on cards with @mentions + notifications
+- [x] Email notifications (invites, mentions) via nodemailer (mailhog in dev)
+- [x] Responsive design pass, loading/empty/error states, toasts
+- [x] Accessibility pass (keyboard nav, ARIA, focus management)
 
 ## Phase 6 — Hardening & Tests
 - [ ] Server unit + integration tests (Vitest + supertest), >70% coverage on core
