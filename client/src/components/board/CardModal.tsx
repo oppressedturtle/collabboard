@@ -2,9 +2,27 @@ import { useEffect, useState } from 'react';
 
 import {
   type Card,
+  type CardActivity,
+  actorName,
   deleteCard as apiDeleteCard,
+  describeCardActivity,
+  listCardActivity,
   updateCard as apiUpdateCard,
 } from '../../lib/cards';
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 interface CardModalProps {
   boardId: string;
@@ -35,6 +53,22 @@ export function CardModal({
   const [due, setDue] = useState(toDateInput(card.dueDate));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<CardActivity[] | null>(null);
+
+  // Load the card's activity log when the modal opens.
+  useEffect(() => {
+    let cancelled = false;
+    listCardActivity(boardId, card.id)
+      .then((items) => {
+        if (!cancelled) setActivity(items);
+      })
+      .catch(() => {
+        if (!cancelled) setActivity([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [boardId, card.id]);
 
   // Close on Escape.
   useEffect(() => {
@@ -168,6 +202,36 @@ export function CardModal({
             </label>
           </div>
         </div>
+
+        <section className="mt-6 border-t border-slate-100 pt-4">
+          <h3 className="text-sm font-semibold text-slate-700">Activity</h3>
+          {activity === null ? (
+            <p className="mt-2 text-sm text-slate-400">Loading activity…</p>
+          ) : activity.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-400">No activity yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {activity.map((a) => (
+                <li key={a.id} className="flex gap-2 text-sm text-slate-600">
+                  <span
+                    className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-brand-400"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    <span className="font-medium text-slate-800">
+                      {actorName(a.actor)}
+                    </span>{' '}
+                    {describeCardActivity(a)}
+                    <span className="text-slate-400">
+                      {' · '}
+                      {relativeTime(a.createdAt)}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         {canEdit && (
           <div className="mt-6 flex items-center justify-between">

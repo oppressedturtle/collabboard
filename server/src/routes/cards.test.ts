@@ -21,4 +21,18 @@ describe('card routes (no-DB paths)', () => {
       .set('Authorization', auth);
     expect(res.status).toBe(400);
   });
+
+  it('requires auth for the activity log (401)', async () => {
+    const res = await request(app).get(
+      '/boards/507f1f77bcf86cd799439011/cards/507f1f77bcf86cd799439011/activity',
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an invalid board id on the activity log (400)', async () => {
+    const res = await request(app)
+      .get('/boards/nope/cards/507f1f77bcf86cd799439011/activity')
+      .set('Authorization', auth);
+    expect(res.status).toBe(400);
+  });
 });

@@ -6,9 +6,11 @@ import {
 } from 'express';
 import { isValidObjectId } from 'mongoose';
 
+import { changedCardFields, recordActivity } from '../lib/activity.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
+import { ActivityModel } from '../models/Activity.js';
 import { CardModel } from '../models/Card.js';
 import { ListModel } from '../models/List.js';
 import {
@@ -69,6 +71,12 @@ cardsRouter.post(
         description: description ?? '',
         position: count,
       });
+      await recordActivity({
+        board: String(boardId),
+        card: card.id,
+        actor: String(req.user?.id),
+        type: 'created',
+      });
       res.status(201).json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -118,6 +126,16 @@ cardsRouter.patch(
         card.dueDate = body.dueDate === null ? null : new Date(body.dueDate);
       }
       await card.save();
+      const fields = changedCardFields(body);
+      if (fields.length > 0) {
+        await recordActivity({
+          board: String(req.board?.id),
+          card: card.id,
+          actor: String(req.user?.id),
+          type: 'updated',
+          meta: { fields },
+        });
+      }
       res.json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -144,9 +162,19 @@ cardsRouter.patch(
       });
       if (!card) throw new HttpError(404, 'Card not found');
 
+      const movedLists = String(card.list) !== String(listId);
       card.set('list', listId);
       card.position = position;
       await card.save();
+      // Only log cross-list moves; pure reorders within a list are noise.
+      if (movedLists) {
+        await recordActivity({
+          board: String(boardId),
+          card: card.id,
+          actor: String(req.user?.id),
+          type: 'moved',
+        });
+      }
       res.json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -160,14 +188,46 @@ cardsRouter.delete(
   requireBoardRole('editor'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const cardId = cardIdParam(req);
       const result = await CardModel.deleteOne({
-        _id: cardIdParam(req),
+        _id: cardId,
         board: req.board?.id,
       });
       if (result.deletedCount === 0) {
         throw new HttpError(404, 'Card not found');
       }
+      // Cascade: the card's activity log goes with it.
+      await ActivityModel.deleteMany({ card: cardId, board: req.board?.id });
       res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/** A card's activity log, newest first. (viewer+) */
+cardsRouter.get(
+  '/:cardId/activity',
+  requireBoardRole('viewer'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const cardId = cardIdParam(req);
+      // Ensure the card belongs to this board before exposing its log.
+      const exists = await CardModel.exists({
+        _id: cardId,
+        board: req.board?.id,
+      });
+      if (!exists) throw new HttpError(404, 'Card not found');
+
+      const activities = await ActivityModel.find({
+        card: cardId,
+        board: req.board?.id,
+      })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .populate('actor', 'name email')
+        .exec();
+      res.json({ activities: activities.map((a) => a.toJSON()) });
     } catch (err) {
       next(err);
     }

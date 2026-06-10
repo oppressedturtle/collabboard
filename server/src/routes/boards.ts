@@ -10,6 +10,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
+import { ActivityModel } from '../models/Activity.js';
 import { BoardModel } from '../models/Board.js';
 import { CardModel } from '../models/Card.js';
 import { ListModel } from '../models/List.js';
@@ -107,7 +108,8 @@ boardsRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const boardId = req.board?.id;
-      // Cascade: remove the board's cards and lists, then the board itself.
+      // Cascade: remove the board's activity, cards and lists, then itself.
+      await ActivityModel.deleteMany({ board: boardId });
       await CardModel.deleteMany({ board: boardId });
       await ListModel.deleteMany({ board: boardId });
       await req.board?.deleteOne();

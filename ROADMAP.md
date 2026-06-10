@@ -29,7 +29,7 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Card model (title, description, labels, assignees, due date, position), CRUD
 - [x] Drag-and-drop UI (dnd-kit) for cards across lists, optimistic updates
 - [x] Card detail modal: description, labels, due dates, edit + delete
-- [ ] Activity log per card
+- [x] Activity log per card
 
 ## Phase 4 — Realtime Collaboration
 - [ ] Socket.io server, room-per-board, JWT-authenticated sockets
