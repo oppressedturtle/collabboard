@@ -6,13 +6,14 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { BoardColumn } from '../components/board/BoardColumn';
 import { CardModal } from '../components/board/CardModal';
 import { useAuth } from '../auth/context';
 import { ApiError } from '../lib/api';
+import { getSocket } from '../lib/socket';
 import { applyDragEnd, cardsForList } from '../lib/boardDnd';
 import { type Board, getBoard } from '../lib/boards';
 import {
@@ -23,6 +24,11 @@ import {
 } from '../lib/cards';
 import { type List, createList, deleteList, listLists } from '../lib/lists';
 
+interface Viewer {
+  userId: string;
+  email: string;
+}
+
 export function BoardDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -32,15 +38,21 @@ export function BoardDetailPage() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewers, setViewers] = useState<Viewer[]>([]);
 
   const [newListTitle, setNewListTitle] = useState('');
   const [addingList, setAddingList] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
+  // Keep a ref to the current cards so socket handlers don't close over stale state.
+  const cardsRef = useRef(cards);
+  useEffect(() => { cardsRef.current = cards; }, [cards]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  // Initial data load
   useEffect(() => {
     if (!id) return;
     let active = true;
@@ -69,10 +81,102 @@ export function BoardDetailPage() {
         if (active) setLoading(false);
       }
     })();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [id]);
+
+  // Socket.io realtime sync
+  useEffect(() => {
+    if (!id) return;
+    const socket = getSocket();
+
+    if (!socket.connected) socket.connect();
+
+    socket.emit('board:join', id);
+
+    const onCardCreated = (data: { card: Card; actorId: string }) => {
+      if (data.actorId === user?.id) return; // already applied optimistically
+      setCards((prev) =>
+        prev.some((c) => c.id === data.card.id)
+          ? prev
+          : [...prev, data.card],
+      );
+    };
+
+    const onCardUpdated = (data: { card: Card; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setCards((prev) =>
+        prev.map((c) => (c.id === data.card.id ? data.card : c)),
+      );
+      // Sync open modal if it's the same card.
+      setSelectedCard((prev) =>
+        prev?.id === data.card.id ? data.card : prev,
+      );
+    };
+
+    const onCardMoved = (data: { card: Card; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setCards((prev) =>
+        prev.map((c) => (c.id === data.card.id ? data.card : c)),
+      );
+    };
+
+    const onCardDeleted = (data: { cardId: string; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setCards((prev) => prev.filter((c) => c.id !== data.cardId));
+      setSelectedCard((prev) =>
+        prev?.id === data.cardId ? null : prev,
+      );
+    };
+
+    const onListCreated = (data: { list: List; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setLists((prev) =>
+        prev.some((l) => l.id === data.list.id)
+          ? prev
+          : [...prev, data.list].sort((a, b) => a.position - b.position),
+      );
+    };
+
+    const onListUpdated = (data: { list: List; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setLists((prev) =>
+        prev.map((l) => (l.id === data.list.id ? data.list : l)),
+      );
+    };
+
+    const onListDeleted = (data: { listId: string; actorId: string }) => {
+      if (data.actorId === user?.id) return;
+      setLists((prev) => prev.filter((l) => l.id !== data.listId));
+      setCards((prev) => prev.filter((c) => c.list !== data.listId));
+    };
+
+    const onPresenceUpdate = (data: { boardId: string; viewers: Viewer[] }) => {
+      if (data.boardId !== id) return;
+      setViewers(data.viewers.filter((v) => v.userId !== user?.id));
+    };
+
+    socket.on('card:created', onCardCreated);
+    socket.on('card:updated', onCardUpdated);
+    socket.on('card:moved', onCardMoved);
+    socket.on('card:deleted', onCardDeleted);
+    socket.on('list:created', onListCreated);
+    socket.on('list:updated', onListUpdated);
+    socket.on('list:deleted', onListDeleted);
+    socket.on('presence:update', onPresenceUpdate);
+
+    return () => {
+      socket.emit('board:leave', id);
+      socket.off('card:created', onCardCreated);
+      socket.off('card:updated', onCardUpdated);
+      socket.off('card:moved', onCardMoved);
+      socket.off('card:deleted', onCardDeleted);
+      socket.off('list:created', onListCreated);
+      socket.off('list:updated', onListUpdated);
+      socket.off('list:deleted', onListDeleted);
+      socket.off('presence:update', onPresenceUpdate);
+      setViewers([]);
+    };
+  }, [id, user?.id]);
 
   const myRole = board?.members.find((m) => m.user === user?.id)?.role;
   const canEdit = myRole === 'owner' || myRole === 'editor';
@@ -167,7 +271,27 @@ export function BoardDetailPage() {
       >
         ← Boards
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-slate-900">{board.name}</h1>
+
+      <div className="mt-2 flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-slate-900 flex-1">{board.name}</h1>
+        {viewers.length > 0 && (
+          <div className="flex items-center gap-1" title="Also viewing this board">
+            {viewers.slice(0, 5).map((v) => (
+              <span
+                key={v.userId}
+                title={v.email}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700 ring-2 ring-white"
+              >
+                {v.email[0]?.toUpperCase() ?? '?'}
+              </span>
+            ))}
+            {viewers.length > 5 && (
+              <span className="text-xs text-slate-500">+{viewers.length - 5}</span>
+            )}
+          </div>
+        )}
+      </div>
+
       {board.description && (
         <p className="mt-1 text-sm text-slate-600">{board.description}</p>
       )}

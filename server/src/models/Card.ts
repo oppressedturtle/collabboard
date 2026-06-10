@@ -32,6 +32,9 @@ const cardSchema = new Schema(
     },
     dueDate: { type: Date, default: null },
     position: { type: Number, required: true, default: 0 },
+    // Monotonically incremented on each save — clients use this for
+    // last-write-wins conflict detection without rejecting stale writes.
+    version: { type: Number, required: true, default: 0 },
   },
   {
     timestamps: true,

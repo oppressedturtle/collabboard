@@ -2,7 +2,36 @@
 
 Daily increments by the autonomous build pipeline. Newest first.
 
-## 2026-06-09 — Phase 0: Server skeleton
+## 2026-06-10 — Phase 4 COMPLETE: Realtime Collaboration (Socket.io)
+
+**Done:**
+- `socket.io` (server) + `socket.io-client` (client) installed.
+- `server/src/lib/socket.ts`: Socket.io server singleton — JWT auth from
+  httpOnly cookie (parsed from WS upgrade `Cookie` header), room-per-board
+  (`board:${id}`), membership check before join, in-memory presence tracking,
+  `emitToBoard` helper.
+- `server.ts` refactored to create an explicit `http.Server` and pass it to
+  `initSocket()` before `.listen()`.
+- `Card` model: added `version` field (Number, default 0) — incremented on
+  each update/move for last-write-wins conflict detection.
+- Cards router: emits `card:created`, `card:updated`, `card:moved`,
+  `card:deleted` (with `boardId` + `actorId`) after each successful mutation.
+- Lists router: emits `list:created`, `list:updated`, `list:deleted` similarly.
+- `client/src/lib/socket.ts`: lazy singleton socket (autoConnect:false,
+  withCredentials:true, cookie auth implicit).
+- `BoardDetailPage`: connects on mount, emits `board:join`/`board:leave`,
+  handles all board events (skips self-events by actorId), syncs open modal
+  on `card:updated`, clears it on `card:deleted`. Presence avatars rendered in
+  the board header (other viewers' email initials, ring-styled, max 5 + count).
+- Verified: server 47/47 tests ✓, client 16/16 tests ✓, typecheck ✓, lint ✓,
+  builds ✓ (both).
+
+**Roadmap:** Phase 4 — 4/4 ✓ (realtime sync, presence, conflict version field all done).
+
+**Next:** Phase 5 — Polish & Pro Features: search/filter cards, comments with
+@mentions, email notifications, responsive design, accessibility pass.
+
+## 2026-06-09 — Phase 3: per-card activity log (created/updated/moved)
 
 **Done:**
 - Built the `@collabboard/server` workspace: Express 4 + TypeScript (ESM,

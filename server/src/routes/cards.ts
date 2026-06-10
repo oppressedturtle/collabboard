@@ -7,6 +7,7 @@ import {
 import { isValidObjectId } from 'mongoose';
 
 import { changedCardFields, recordActivity } from '../lib/activity.js';
+import { emitToBoard } from '../lib/socket.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
@@ -77,6 +78,12 @@ cardsRouter.post(
         actor: String(req.user?.id),
         type: 'created',
       });
+      const actorId = String(req.user?.id);
+      emitToBoard(String(boardId), 'card:created', {
+        card: card.toJSON(),
+        boardId: String(boardId),
+        actorId,
+      });
       res.status(201).json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -125,6 +132,7 @@ cardsRouter.patch(
       if (body.dueDate !== undefined) {
         card.dueDate = body.dueDate === null ? null : new Date(body.dueDate);
       }
+      card.set('version', ((card.get('version') as number) ?? 0) + 1);
       await card.save();
       const fields = changedCardFields(body);
       if (fields.length > 0) {
@@ -136,6 +144,12 @@ cardsRouter.patch(
           meta: { fields },
         });
       }
+      const actorId = String(req.user?.id);
+      emitToBoard(String(req.board?.id), 'card:updated', {
+        card: card.toJSON(),
+        boardId: String(req.board?.id),
+        actorId,
+      });
       res.json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -165,6 +179,7 @@ cardsRouter.patch(
       const movedLists = String(card.list) !== String(listId);
       card.set('list', listId);
       card.position = position;
+      card.set('version', ((card.get('version') as number) ?? 0) + 1);
       await card.save();
       // Only log cross-list moves; pure reorders within a list are noise.
       if (movedLists) {
@@ -175,6 +190,12 @@ cardsRouter.patch(
           type: 'moved',
         });
       }
+      const actorId = String(req.user?.id);
+      emitToBoard(String(boardId), 'card:moved', {
+        card: card.toJSON(),
+        boardId: String(boardId),
+        actorId,
+      });
       res.json({ card: card.toJSON() });
     } catch (err) {
       next(err);
@@ -198,6 +219,12 @@ cardsRouter.delete(
       }
       // Cascade: the card's activity log goes with it.
       await ActivityModel.deleteMany({ card: cardId, board: req.board?.id });
+      const boardId = String(req.board?.id);
+      emitToBoard(boardId, 'card:deleted', {
+        cardId,
+        boardId,
+        actorId: String(req.user?.id),
+      });
       res.status(204).end();
     } catch (err) {
       next(err);

@@ -1,7 +1,10 @@
+import { createServer } from 'http';
+
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDb, disconnectDb } from './lib/db.js';
 import { logger } from './lib/logger.js';
+import { initSocket } from './lib/socket.js';
 
 /**
  * Process entry point. Connects to MongoDB, starts the HTTP listener, and
@@ -14,8 +17,11 @@ async function start(): Promise<void> {
   await connectDb();
 
   const app = createApp();
+  const server = createServer(app);
 
-  const server = app.listen(env.PORT, () => {
+  initSocket(server);
+
+  server.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, env: env.NODE_ENV },
       `CollabBoard server listening on http://localhost:${env.PORT}`,

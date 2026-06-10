@@ -6,6 +6,7 @@ import {
 } from 'express';
 import { isValidObjectId } from 'mongoose';
 
+import { emitToBoard } from '../lib/socket.js';
 import { requireBoardRole } from '../middleware/boardAccess.js';
 import { HttpError } from '../middleware/error.js';
 import { validateBody } from '../middleware/validate.js';
@@ -55,6 +56,11 @@ listsRouter.post(
         title,
         position: count,
       });
+      emitToBoard(String(boardId), 'list:created', {
+        list: list.toJSON(),
+        boardId: String(boardId),
+        actorId: String(req.user?.id),
+      });
       res.status(201).json({ list: list.toJSON() });
     } catch (err) {
       next(err);
@@ -83,6 +89,11 @@ listsRouter.patch(
       if (title !== undefined) list.title = title;
       if (position !== undefined) list.position = position;
       await list.save();
+      emitToBoard(String(req.board?.id), 'list:updated', {
+        list: list.toJSON(),
+        boardId: String(req.board?.id),
+        actorId: String(req.user?.id),
+      });
       res.json({ list: list.toJSON() });
     } catch (err) {
       next(err);
@@ -119,6 +130,12 @@ listsRouter.delete(
         await ActivityModel.deleteMany({ card: { $in: cardIds } });
       }
       await CardModel.deleteMany({ list: listId, board: req.board?.id });
+      const boardId = String(req.board?.id);
+      emitToBoard(boardId, 'list:deleted', {
+        listId,
+        boardId,
+        actorId: String(req.user?.id),
+      });
       res.status(204).end();
     } catch (err) {
       next(err);

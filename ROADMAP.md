@@ -32,10 +32,10 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Activity log per card
 
 ## Phase 4 — Realtime Collaboration
-- [ ] Socket.io server, room-per-board, JWT-authenticated sockets
-- [ ] Broadcast card/list create/update/move/delete to board members live
-- [ ] Presence: show who's viewing a board (avatars), live cursors optional
-- [ ] Conflict handling for concurrent edits (last-write-wins + version field)
+- [x] Socket.io server, room-per-board, JWT-authenticated sockets
+- [x] Broadcast card/list create/update/move/delete to board members live
+- [x] Presence: show who's viewing a board (avatars), live cursors optional
+- [x] Conflict handling for concurrent edits (last-write-wins + version field)
 
 ## Phase 5 — Polish & Pro Features
 - [ ] Search/filter cards, labels filter, due-soon view
