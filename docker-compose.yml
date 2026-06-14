@@ -33,9 +33,15 @@ services:
       LOG_LEVEL: info
       SMTP_HOST: mailhog
       SMTP_PORT: '1025'
-      # REQUIRED in production — generate with: openssl rand -base64 48
-      # JWT_ACCESS_SECRET: <set via .env file or secrets manager>
-      # JWT_REFRESH_SECRET: <set via .env file or secrets manager>
+      # REQUIRED — generate two strong values and put them in a local .env file
+      # (next to this compose file; it is gitignored). See .env.example.
+      #   JWT_ACCESS_SECRET=$(openssl rand -base64 48)
+      #   JWT_REFRESH_SECRET=$(openssl rand -base64 48)
+      # Compose auto-loads ./.env and interpolates them here. The :? guard makes
+      # `docker compose up` fail fast with a clear message if they're unset,
+      # instead of the server crash-looping on the production secret guard.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in ./.env (see .env.example; openssl rand -base64 48)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in ./.env (see .env.example; openssl rand -base64 48)}
       COOKIE_SECURE: 'false'   # set to 'true' behind HTTPS in production
       COOKIE_SAMESITE: lax
     ports:

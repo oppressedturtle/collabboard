@@ -60,8 +60,12 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 ## SECURITY PHASE (runs after Phase 7, by the security agent)
 Full audit + fixes: dependency CVEs (`npm audit`), authz checks on every endpoint, injection (NoSQL/XSS), JWT/secret handling, CORS, security headers (helmet), rate limiting, secrets never committed, input validation coverage, file-upload hardening. Document findings + fixes in `SECURITY.md`.
 
-## QA PHASE (after security)
+## QA PHASE (after security) — ✅ GREEN (2026-06-14)
 Spin up the full stack via Docker Compose, run all tests, manually verify every Phase 1–5 feature works end to end. Log results in `PROGRESS.md`. Only proceed to ship when green.
+- [x] Full stack up via `docker compose up --build` (mongo + server + client + mailhog)
+- [x] Server 89/89 + client 35/35 unit/integration tests green
+- [x] End-to-end happy path against the **production** containers via nginx proxy: register → me → create board → create list → create card → fetch cards → members list; Socket.io handshake 200
+- [x] Fixed compose secret wiring so the stack boots cleanly (was crash-looping on the prod JWT-secret guard) — see PROGRESS
 
 ## SHIP PHASE (after QA green)
 Push final commits/tags to the **public** repo under `oppressedturtle`, verify CI passes, then notify Yanis for review.

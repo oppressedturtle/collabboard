@@ -2,6 +2,32 @@
 
 Daily increments by the autonomous build pipeline. Newest first.
 
+## 2026-06-14 — QA PHASE: full-stack verification (GREEN) + compose boot fix
+
+**Done:**
+- **Unit/integration:** server **89/89** and client **35/35** green.
+- **Full stack up** via `docker compose up --build` (mongo:7 + server + client/nginx +
+  mailhog). Mongo healthy, server `/health` → `db: connected`, `/health/ready` → ready,
+  client SPA HTTP 200.
+- **Production-stack E2E happy path** (curl through the client nginx proxy, cookie auth):
+  register → `/auth/me` → create board → create list → create card → fetch cards →
+  `GET /boards/:id/members` (today's feature) → Socket.io polling handshake — all 200/201.
+  This exercises the same flow as the Playwright spec but against the real prod containers.
+- **QA fix — compose boot gap (real finding):** out of the box `docker compose up`
+  crash-looped: the server's production secret guard (good!) refuses to start without
+  `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`, but the compose file only mentioned them in
+  comments and never wired them — so a dev following the README's 3-step quick-start hit a
+  502. Fixed: compose now interpolates both secrets from a gitignored `./.env` with a
+  `:?` fail-fast guard (clear error instead of a silent crash loop), and added
+  `.env.example` documenting `openssl rand -base64 48`. Verified the stack boots healthy
+  and serves the full E2E flow with secrets supplied.
+
+**Roadmap:** QA phase ✅ green. Advancing to SHIP.
+
+**Next:** SHIP — push, confirm GitHub Actions CI passes on the new commit, tag `v1.0.0`,
+set `shipped: true`, and notify Yanis with the repo link for review.
+
+
 ## 2026-06-14 — Phase 2 closeout: board settings + member management UI
 
 **Done:**
