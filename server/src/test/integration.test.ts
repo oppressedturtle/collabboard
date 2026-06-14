@@ -195,6 +195,101 @@ describe('board routes', () => {
     expect(res.status).toBe(404);
   });
 
+  it('lists members with resolved name/email (200)', async () => {
+    const { auth: ownerAuth } = await auth('owner@test.com');
+    await registerAndLogin('member@test.com', 'password123', 'Mary Member');
+    const created = await request(app)
+      .post('/boards')
+      .set('Authorization', ownerAuth)
+      .send({ name: 'Team Board' });
+    const id = (created.body as { board: { id: string } }).board.id;
+    await request(app)
+      .post(`/boards/${id}/members`)
+      .set('Authorization', ownerAuth)
+      .send({ email: 'member@test.com', role: 'editor' });
+
+    const res = await request(app)
+      .get(`/boards/${id}/members`)
+      .set('Authorization', ownerAuth);
+    expect(res.status).toBe(200);
+    const members = (
+      res.body as {
+        members: Array<{
+          user: { email: string; name: string };
+          role: string;
+          isOwner: boolean;
+        }>;
+      }
+    ).members;
+    expect(members).toHaveLength(2);
+    const owner = members.find((m) => m.isOwner);
+    const invited = members.find((m) => m.user.email === 'member@test.com');
+    expect(owner?.user.email).toBe('owner@test.com');
+    expect(invited?.user.name).toBe('Mary Member');
+    expect(invited?.role).toBe('editor');
+  });
+
+  it('changes a member role (200)', async () => {
+    const { auth: ownerAuth } = await auth('owner@test.com');
+    const { userId: memberId } = await registerAndLogin('member@test.com');
+    const created = await request(app)
+      .post('/boards')
+      .set('Authorization', ownerAuth)
+      .send({ name: 'Role Board' });
+    const id = (created.body as { board: { id: string } }).board.id;
+    await request(app)
+      .post(`/boards/${id}/members`)
+      .set('Authorization', ownerAuth)
+      .send({ email: 'member@test.com', role: 'viewer' });
+
+    const res = await request(app)
+      .patch(`/boards/${id}/members/${memberId}`)
+      .set('Authorization', ownerAuth)
+      .send({ role: 'editor' });
+    expect(res.status).toBe(200);
+    const members = (
+      res.body as { board: { members: Array<{ user: string; role: string }> } }
+    ).board.members;
+    expect(members.find((m) => m.user === memberId)?.role).toBe('editor');
+  });
+
+  it('removes a member (200)', async () => {
+    const { auth: ownerAuth } = await auth('owner@test.com');
+    const { userId: memberId } = await registerAndLogin('member@test.com');
+    const created = await request(app)
+      .post('/boards')
+      .set('Authorization', ownerAuth)
+      .send({ name: 'Removal Board' });
+    const id = (created.body as { board: { id: string } }).board.id;
+    await request(app)
+      .post(`/boards/${id}/members`)
+      .set('Authorization', ownerAuth)
+      .send({ email: 'member@test.com', role: 'viewer' });
+
+    const res = await request(app)
+      .delete(`/boards/${id}/members/${memberId}`)
+      .set('Authorization', ownerAuth);
+    expect(res.status).toBe(200);
+    const members = (
+      res.body as { board: { members: Array<{ user: string }> } }
+    ).board.members;
+    expect(members.some((m) => m.user === memberId)).toBe(false);
+  });
+
+  it('non-owners cannot list members management without access (404)', async () => {
+    const { auth: ownerAuth } = await auth('owner@test.com');
+    const { auth: otherAuth } = await auth('other@test.com');
+    const created = await request(app)
+      .post('/boards')
+      .set('Authorization', ownerAuth)
+      .send({ name: 'Closed Board' });
+    const id = (created.body as { board: { id: string } }).board.id;
+    const res = await request(app)
+      .get(`/boards/${id}/members`)
+      .set('Authorization', otherAuth);
+    expect(res.status).toBe(404);
+  });
+
   it('deletes a board (204)', async () => {
     const { auth: bearer } = await auth('owner@test.com');
     const created = await request(app)

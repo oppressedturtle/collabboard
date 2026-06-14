@@ -10,6 +10,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { BoardColumn } from '../components/board/BoardColumn';
+import { BoardSettings } from '../components/board/BoardSettings';
 import { CardModal } from '../components/board/CardModal';
 import { useToast } from '../components/useToast';
 import { useAuth } from '../auth/context';
@@ -60,6 +61,7 @@ export function BoardDetailPage() {
   const [newListTitle, setNewListTitle] = useState('');
   const [addingList, setAddingList] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Per-card comment lists fed from socket events (so open modal stays in sync)
   const [socketComments, setSocketComments] = useState<Map<string, Comment[]>>(
@@ -372,6 +374,15 @@ export function BoardDetailPage() {
             )}
           </div>
         )}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            Settings
+          </button>
+        )}
       </div>
 
       {board.description && (
@@ -484,6 +495,16 @@ export function BoardDetailPage() {
           )}
         </div>
       </DndContext>
+
+      {showSettings && (
+        <BoardSettings
+          board={board}
+          canEdit={canEdit}
+          isOwner={isBoardOwner}
+          onClose={() => setShowSettings(false)}
+          onBoardUpdated={setBoard}
+        />
+      )}
 
       {selectedCard && id && (
         <CardModal

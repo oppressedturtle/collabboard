@@ -22,7 +22,7 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 ## Phase 2 — Boards & Membership
 - [x] Board model (owner, members, roles: owner/editor/viewer), CRUD endpoints
 - [x] Role-based authorization middleware
-- [ ] Board list + create UI, board settings, invite members by email
+- [x] Board list + create UI, board settings, invite members by email
 - [x] Lists/columns model + CRUD, ordering
 
 ## Phase 3 — Cards & Drag-Drop
@@ -45,17 +45,17 @@ Each roadmap item is a self-contained increment the coder agent completes in one
 - [x] Accessibility pass (keyboard nav, ARIA, focus management)
 
 ## Phase 6 — Hardening & Tests
-- [ ] Server unit + integration tests (Vitest + supertest), >70% coverage on core
-- [ ] Client component tests (Vitest + Testing Library) for key flows
-- [ ] E2E happy path (Playwright): login → create board → add card → move card
-- [ ] GitHub Actions CI: lint, typecheck, test, build on every push/PR
-- [ ] Seed script + demo data, OpenAPI/Swagger docs for the REST API
+- [x] Server unit + integration tests (Vitest + supertest), >70% coverage on core
+- [x] Client component tests (Vitest + Testing Library) for key flows
+- [x] E2E happy path (Playwright): login → create board → add card → move card
+- [x] GitHub Actions CI: lint, typecheck, test, build on every push/PR
+- [x] Seed script + demo data, OpenAPI/Swagger docs for the REST API
 
 ## Phase 7 — Deploy-Ready
-- [ ] Production Docker build (multi-stage), env var documentation
-- [ ] Deployment guide (Render/Railway/Fly for server+Mongo Atlas, Vercel for client)
-- [ ] Polished README: screenshots/GIF, feature list, architecture diagram, setup, live-demo placeholder
-- [ ] Final security checklist verified (see SECURITY phase below)
+- [x] Production Docker build (multi-stage), env var documentation
+- [x] Deployment guide (Render/Railway/Fly for server+Mongo Atlas, Vercel for client)
+- [x] Polished README: screenshots/GIF, feature list, architecture diagram, setup, live-demo placeholder
+- [x] Final security checklist verified (see SECURITY phase below)
 
 ## SECURITY PHASE (runs after Phase 7, by the security agent)
 Full audit + fixes: dependency CVEs (`npm audit`), authz checks on every endpoint, injection (NoSQL/XSS), JWT/secret handling, CORS, security headers (helmet), rate limiting, secrets never committed, input validation coverage, file-upload hardening. Document findings + fixes in `SECURITY.md`.

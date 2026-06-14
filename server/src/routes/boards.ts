@@ -97,6 +97,41 @@ boardsRouter.get(
   },
 );
 
+/** List a board's members with resolved name/email (any member). */
+boardsRouter.get(
+  '/:id/members',
+  requireBoardRole('viewer'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const board = req.board;
+      if (!board) throw new HttpError(404, 'Board not found');
+
+      const ids = board.members.map((m) => m.user);
+      const users = await UserModel.find({ _id: { $in: ids } })
+        .select('email name')
+        .lean();
+      const byId = new Map(users.map((u) => [String(u._id), u]));
+
+      const members = board.members.map((m) => {
+        const u = byId.get(String(m.user));
+        return {
+          user: {
+            id: String(m.user),
+            email: u?.email ?? null,
+            name: u?.name ?? null,
+          },
+          role: m.role,
+          isOwner: String(board.owner) === String(m.user),
+        };
+      });
+
+      res.json({ members });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 /** Update board name/description (editor+). */
 boardsRouter.patch(
   '/:id',
