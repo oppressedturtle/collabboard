@@ -2,6 +2,34 @@
 
 Daily increments by the autonomous build pipeline. Newest first.
 
+## 2026-06-14 — Phase 2 closeout: board settings + member management UI
+
+**Done:**
+- **New endpoint** `GET /boards/:id/members` (viewer+): resolves each member's
+  `{ id, email, name, role, isOwner }` by batching a `User` lookup — board docs only
+  store member IDs, so this powers a friendly members list without changing existing
+  response shapes.
+- **`BoardSettings` modal** (`components/board/BoardSettings.tsx`): edit board
+  name/description (editor+), and owner-only member management — invite by email with
+  role select, change a member's role (editor/viewer), remove a member. Optimistic
+  updates with rollback, ARIA dialog, Esc-to-close, focus management mirroring `CardModal`.
+- **Settings button** wired into the board header (shown to editors+); modal updates
+  board state on save via `onBoardUpdated`.
+- **Client data layer** (`lib/boards.ts`): `updateBoard`, `listMembers`, `inviteMember`,
+  `updateMemberRole`, `removeMember` + `ResolvedMember` type.
+- **Tests:** +4 server integration (members list with resolved name/email, role change,
+  removal, non-member 404) and +2 client component tests (owner invite flow, non-owner
+  hides management). Server **89/89**, client **35/35**, typecheck ✓, lint ✓, client build ✓.
+- Checked off the last open Phase 2 building item, plus the stale Phase 6/7 roadmap
+  boxes (that work already shipped in commit `ee3c60c` — tests/CI/seed/OpenAPI + deploy docs).
+
+**Roadmap:** Phases 0–7 building complete; SECURITY phase already done (SEV-001..011).
+
+**Next:** QA phase — bring the full stack up via Docker Compose, run all tests + the
+Playwright E2E happy path, manually verify each feature end to end, log results here,
+then SHIP (tag a release, confirm CI green).
+
+
 ## 2026-06-10 — SECURITY PHASE COMPLETE: All High/Medium Findings Resolved
 
 **Done:**
